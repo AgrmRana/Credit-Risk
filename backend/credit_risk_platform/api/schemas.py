@@ -12,6 +12,8 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     probability_default: float
     decision: str
+    risk_band: str
+    prediction_confidence: float
     threshold: float
     model_name: str
 

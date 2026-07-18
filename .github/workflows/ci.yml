@@ -15,7 +15,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: PYTHONPATH=backend ruff check backend tests
+      - run: PYTHONPATH=backend ruff check backend tests scripts
+      - run: black --check backend tests scripts
       - run: PYTHONPATH=backend pytest
 
   frontend:

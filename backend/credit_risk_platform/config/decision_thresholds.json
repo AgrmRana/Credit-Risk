@@ -1,0 +1,10 @@
+{
+  "approve_max_pd": 0.35,
+  "manual_review_max_pd": 0.55,
+  "risk_bands": [
+    { "name": "Low", "min_pd": 0.0, "max_pd": 0.2 },
+    { "name": "Medium", "min_pd": 0.2, "max_pd": 0.35 },
+    { "name": "High", "min_pd": 0.35, "max_pd": 0.55 },
+    { "name": "Very High", "min_pd": 0.55, "max_pd": 1.0 }
+  ]
+}

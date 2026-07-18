@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import pandas as pd
 from sklearn.calibration import calibration_curve
@@ -17,6 +17,9 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 
 
 def ks_statistic(y_true: np.ndarray, y_score: np.ndarray) -> float:

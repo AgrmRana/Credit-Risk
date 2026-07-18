@@ -2,10 +2,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import pandas as pd
 from sklearn.inspection import PartialDependenceDisplay
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 
 LOGGER = logging.getLogger(__name__)
 

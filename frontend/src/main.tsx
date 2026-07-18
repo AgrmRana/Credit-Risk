@@ -9,6 +9,7 @@ import {
   History,
   Landmark,
   PlayCircle,
+  Scale,
   ShieldCheck
 } from "lucide-react";
 import {
@@ -36,6 +37,8 @@ type Metrics = {
 type Prediction = {
   probability_default: number;
   decision: string;
+  risk_band: string;
+  prediction_confidence: number;
   threshold: number;
   model_name: string;
 };
@@ -137,12 +140,13 @@ function App() {
   }
 
   const nav = [
-    ["dashboard", Gauge, "Dashboard"],
+    ["dashboard", Gauge, "Overview"],
     ["single", ShieldCheck, "Single Prediction"],
     ["batch", FileUp, "Batch Prediction"],
     ["metrics", BarChart3, "Model Metrics"],
     ["importance", Activity, "Feature Importance"],
-    ["history", History, "Prediction History"]
+    ["history", History, "Prediction History"],
+    ["decision", Scale, "Business Decision"]
   ] as const;
 
   return (
@@ -181,8 +185,8 @@ function App() {
           <div className="grid">
             <MetricCard label="Champion" value={metrics?.champion_model ?? "Unavailable"} />
             <MetricCard label="ROC AUC" value={Number(championMetrics?.roc_auc ?? 0).toFixed(3)} />
+            <MetricCard label="PR AUC" value={Number(championMetrics?.pr_auc ?? 0).toFixed(3)} />
             <MetricCard label="KS" value={Number(championMetrics?.ks_statistic ?? 0).toFixed(3)} />
-            <MetricCard label="Train/Test" value={`${metrics?.n_train ?? 0}/${metrics?.n_test ?? 0}`} />
             <section className="panel wide">
               <h2>Top Risk Drivers</h2>
               <ImportanceChart data={importance} />
@@ -197,8 +201,10 @@ function App() {
             <button className="primary" onClick={runPrediction}>Score Applicant</button>
             {prediction && (
               <div className={`decision ${prediction.decision}`}>
-                <strong>{prediction.decision.toUpperCase()}</strong>
+                <strong>{prediction.decision}</strong>
                 <span>PD {(prediction.probability_default * 100).toFixed(2)}%</span>
+                <span>Risk Band {prediction.risk_band}</span>
+                <span>Confidence {(prediction.prediction_confidence * 100).toFixed(1)}%</span>
               </div>
             )}
           </section>
@@ -207,8 +213,12 @@ function App() {
         {page === "batch" && (
           <section className="panel">
             <h2>Batch Prediction</h2>
-            <p>Upload a CSV with German Credit feature columns to score multiple applicants through `/batch-predict`.</p>
+            <p>Upload a CSV with the selected model feature columns to score multiple applicants through `/batch-predict`.</p>
             <input type="file" accept=".csv" />
+            <div className="batch-summary">
+              <Database size={18} />
+              <span>Predictions are written to the database with model name, timestamp, PD, risk band, and decision.</span>
+            </div>
           </section>
         )}
 
@@ -259,6 +269,22 @@ function App() {
                 ))}
               </tbody>
             </table>
+          </section>
+        )}
+
+        {page === "decision" && (
+          <section className="panel wide">
+            <h2>Business Decision</h2>
+            {prediction ? (
+              <div className="decision-grid">
+                <MetricCard label="Probability of Default" value={`${(prediction.probability_default * 100).toFixed(2)}%`} />
+                <MetricCard label="Risk Band" value={prediction.risk_band} />
+                <MetricCard label="Decision" value={prediction.decision} />
+                <MetricCard label="Prediction Confidence" value={`${(prediction.prediction_confidence * 100).toFixed(1)}%`} />
+              </div>
+            ) : (
+              <p>Score an applicant in Single Prediction to populate decision details.</p>
+            )}
           </section>
         )}
       </section>
