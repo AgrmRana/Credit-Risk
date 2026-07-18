@@ -1,124 +1,129 @@
 {
   "dataset": "OpenML credit-g / UCI German Credit",
-  "target_definition": "bad credit risk mapped to default=1; good mapped to default=0",
+  "dataset_name": "german",
+  "target_definition": "class mapped to default=1 / non-default=0",
   "champion_model": "random_forest",
   "model_comparison": {
     "logistic_regression": {
-      "roc_auc": 0.746547619047619,
-      "pr_auc": 0.5337667140212489,
-      "ks_statistic": 0.40952380952380957,
-      "gini": 0.49309523809523803,
-      "precision": 0.4791666666666667,
-      "recall": 0.7666666666666667,
-      "f1": 0.5897435897435898,
-      "threshold": 0.4799999999999999,
-      "pr_curve_auc": 0.5282148654383956,
+      "roc_auc": 0.7686904761904761,
+      "pr_auc": 0.5671024395969962,
+      "ks_statistic": 0.430952380952381,
+      "gini": 0.5373809523809523,
+      "precision": 0.603448275862069,
+      "recall": 0.5833333333333334,
+      "f1": 0.5932203389830508,
+      "threshold": 0.625,
+      "pr_curve_auc": 0.5603286900545711,
       "confusion_matrix": [
         [
-          90,
-          50
+          117,
+          23
         ],
         [
-          14,
-          46
+          25,
+          35
         ]
       ],
-      "cv_roc_auc_mean": 0.7395089285714287,
-      "cv_roc_auc_std": 0.030774397776338617,
-      "cv_pr_auc_mean": 0.5237062053989872,
+      "cv_roc_auc_mean": 0.7335565476190474,
+      "cv_roc_auc_std": 0.02216044378488198,
+      "cv_pr_auc_mean": 0.5130452358191933,
       "best_params": {
-        "classifier__C": 0.5146688973455957,
+        "classifier__C": 0.5012926322168021,
         "classifier__class_weight": "balanced"
-      }
+      },
+      "numeric_scaled": true
     },
     "ridge_logistic_regression": {
-      "roc_auc": 0.7485714285714284,
-      "pr_auc": 0.5357325842052839,
-      "ks_statistic": 0.42380952380952386,
-      "gini": 0.4971428571428569,
-      "precision": 0.4842105263157895,
-      "recall": 0.7666666666666667,
-      "f1": 0.5935483870967742,
-      "threshold": 0.48499999999999993,
-      "pr_curve_auc": 0.5301959151538347,
+      "roc_auc": 0.7675000000000001,
+      "pr_auc": 0.5720865152212623,
+      "ks_statistic": 0.42857142857142855,
+      "gini": 0.5350000000000001,
+      "precision": 0.5185185185185185,
+      "recall": 0.7,
+      "f1": 0.5957446808510638,
+      "threshold": 0.5249999999999999,
+      "pr_curve_auc": 0.5656385890918804,
       "confusion_matrix": [
         [
-          91,
-          49
+          101,
+          39
         ],
         [
-          14,
-          46
+          18,
+          42
         ]
       ],
-      "cv_roc_auc_mean": 0.7410714285714286,
-      "cv_roc_auc_std": 0.0284066428547381,
-      "cv_pr_auc_mean": 0.5240873939011964,
+      "cv_roc_auc_mean": 0.7353050595238095,
+      "cv_roc_auc_std": 0.0216071864136056,
+      "cv_pr_auc_mean": 0.5143623631596881,
       "best_params": {
         "classifier__C": 0.33205789513550127,
         "classifier__class_weight": "balanced"
-      }
+      },
+      "numeric_scaled": true
     },
     "random_forest": {
-      "roc_auc": 0.8130952380952381,
-      "pr_auc": 0.6949636292788329,
-      "ks_statistic": 0.5166666666666667,
-      "gini": 0.6261904761904762,
-      "precision": 0.7115384615384616,
-      "recall": 0.6166666666666667,
-      "f1": 0.6607142857142857,
-      "threshold": 0.4649999999999999,
-      "pr_curve_auc": 0.6917890880144384,
+      "roc_auc": 0.8114285714285714,
+      "pr_auc": 0.7106589653502466,
+      "ks_statistic": 0.4690476190476191,
+      "gini": 0.6228571428571428,
+      "precision": 0.6862745098039216,
+      "recall": 0.5833333333333334,
+      "f1": 0.6306306306306306,
+      "threshold": 0.4699999999999999,
+      "pr_curve_auc": 0.7083619111424406,
       "confusion_matrix": [
         [
-          125,
-          15
+          124,
+          16
         ],
         [
-          23,
-          37
+          25,
+          35
         ]
       ],
-      "cv_roc_auc_mean": 0.7883184523809523,
-      "cv_roc_auc_std": 0.032048938931065155,
-      "cv_pr_auc_mean": 0.6110938934725395,
+      "cv_roc_auc_mean": 0.7905877976190475,
+      "cv_roc_auc_std": 0.04028700095744439,
+      "cv_pr_auc_mean": 0.618276160307696,
       "best_params": {
         "classifier__class_weight": "balanced",
         "classifier__max_depth": null,
         "classifier__min_samples_leaf": 2,
         "classifier__n_estimators": 171
-      }
+      },
+      "numeric_scaled": false
     },
     "xgboost": {
-      "roc_auc": 0.8022619047619047,
-      "pr_auc": 0.6743611780733043,
-      "ks_statistic": 0.5166666666666666,
-      "gini": 0.6045238095238095,
-      "precision": 0.6557377049180327,
-      "recall": 0.6666666666666666,
-      "f1": 0.6611570247933884,
-      "threshold": 0.41999999999999993,
-      "pr_curve_auc": 0.6696136642961383,
+      "roc_auc": 0.7999999999999999,
+      "pr_auc": 0.6833965582964795,
+      "ks_statistic": 0.4571428571428571,
+      "gini": 0.5999999999999999,
+      "precision": 0.5526315789473685,
+      "recall": 0.7,
+      "f1": 0.6176470588235294,
+      "threshold": 0.33499999999999996,
+      "pr_curve_auc": 0.6796846704005975,
       "confusion_matrix": [
         [
-          119,
-          21
+          106,
+          34
         ],
         [
-          20,
-          40
+          18,
+          42
         ]
       ],
-      "cv_roc_auc_mean": 0.796577380952381,
-      "cv_roc_auc_std": 0.03185544972845636,
-      "cv_pr_auc_mean": 0.6170905896366282,
+      "cv_roc_auc_mean": 0.7881696428571427,
+      "cv_roc_auc_std": 0.03315761207239224,
+      "cv_pr_auc_mean": 0.6130914130957275,
       "best_params": {
         "classifier__colsample_bytree": 0.696805592132731,
         "classifier__learning_rate": 0.0483991780504304,
         "classifier__max_depth": 4,
         "classifier__n_estimators": 167,
         "classifier__subsample": 0.7501125833417066
-      }
+      },
+      "numeric_scaled": false
     }
   },
   "validation_artifacts": {
@@ -130,56 +135,126 @@
     "partial_dependence": "artifacts/reports/partial_dependence.png",
     "shap_summary": "artifacts/reports/shap_summary.png"
   },
+  "feature_report_artifacts": {
+    "markdown": "artifacts/reports/german_feature_report.md",
+    "html": "artifacts/reports/german_feature_report.html"
+  },
+  "feature_engineering_summary": {
+    "original_features": [
+      "checking_status",
+      "duration",
+      "credit_history",
+      "purpose",
+      "credit_amount",
+      "savings_status",
+      "employment",
+      "installment_commitment",
+      "personal_status",
+      "other_parties",
+      "residence_since",
+      "property_magnitude",
+      "age",
+      "other_payment_plans",
+      "housing",
+      "existing_credits",
+      "job",
+      "num_dependents",
+      "own_telephone",
+      "foreign_worker"
+    ],
+    "derived_features": [
+      "credit_amount_per_duration",
+      "age_squared",
+      "age_band",
+      "credit_exposure_score"
+    ],
+    "dropped_features": [],
+    "encoding_summary": {
+      "unscaled_numeric": [
+        "duration",
+        "credit_amount",
+        "installment_commitment",
+        "residence_since",
+        "age",
+        "existing_credits",
+        "num_dependents",
+        "credit_amount_per_duration",
+        "age_squared",
+        "age_band",
+        "credit_exposure_score"
+      ],
+      "ordinal": [
+        "checking_status",
+        "savings_status",
+        "employment"
+      ],
+      "one_hot": [
+        "credit_history",
+        "purpose",
+        "personal_status",
+        "other_parties",
+        "property_magnitude",
+        "other_payment_plans",
+        "housing",
+        "job",
+        "own_telephone"
+      ],
+      "boolean_ordinal": [
+        "foreign_worker"
+      ],
+      "date_derived_then_dropped": []
+    }
+  },
   "top_features": [
     {
       "feature": "checking_status",
-      "importance_mean": 0.09973809523809524,
-      "importance_std": 0.027793466091324662
+      "importance_mean": 0.12549999999999994,
+      "importance_std": 0.033815593016621175
     },
     {
       "feature": "duration",
-      "importance_mean": 0.0673095238095238,
-      "importance_std": 0.012981235367072281
+      "importance_mean": 0.04548809523809523,
+      "importance_std": 0.011478616864619061
     },
     {
       "feature": "credit_amount",
-      "importance_mean": 0.0379761904761905,
-      "importance_std": 0.015361202859411201
+      "importance_mean": 0.03976190476190474,
+      "importance_std": 0.01798415150112512
     },
     {
       "feature": "credit_history",
-      "importance_mean": 0.027988095238095256,
-      "importance_std": 0.009839622397950052
+      "importance_mean": 0.029702380952380914,
+      "importance_std": 0.011536598816154547
     },
     {
       "feature": "purpose",
-      "importance_mean": 0.023238095238095204,
-      "importance_std": 0.007473270585401707
+      "importance_mean": 0.014511904761904759,
+      "importance_std": 0.005642266896998188
     },
     {
       "feature": "age",
-      "importance_mean": 0.017249999999999998,
-      "importance_std": 0.007994373375626983
-    },
-    {
-      "feature": "own_telephone",
-      "importance_mean": 0.009535714285714281,
-      "importance_std": 0.003464040246580858
-    },
-    {
-      "feature": "installment_commitment",
-      "importance_mean": 0.008011904761904743,
-      "importance_std": 0.006063966002004743
-    },
-    {
-      "feature": "other_payment_plans",
-      "importance_mean": 0.007476190476190481,
-      "importance_std": 0.004857317924015875
+      "importance_mean": 0.011559523809523797,
+      "importance_std": 0.007035391983593523
     },
     {
       "feature": "other_parties",
-      "importance_mean": 0.0071428571428571504,
-      "importance_std": 0.0036499308849418793
+      "importance_mean": 0.008261904761904748,
+      "importance_std": 0.004014994571091647
+    },
+    {
+      "feature": "own_telephone",
+      "importance_mean": 0.00667857142857139,
+      "importance_std": 0.004554547825601556
+    },
+    {
+      "feature": "other_payment_plans",
+      "importance_mean": 0.005488095238095203,
+      "importance_std": 0.005809584796713489
+    },
+    {
+      "feature": "savings_status",
+      "importance_mean": 0.005214285714285694,
+      "importance_std": 0.007531829661502367
     }
   ],
   "n_train": 800,

@@ -5,7 +5,7 @@ install:
 	. .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
 
 train:
-	. .venv/bin/activate && PYTHONPATH=backend python -m credit_risk_platform.training.train
+	. .venv/bin/activate && PYTHONPATH=backend python -m credit_risk_platform.training.train --dataset $${DATASET:-german}
 
 api:
 	. .venv/bin/activate && PYTHONPATH=backend uvicorn credit_risk_platform.api.main:app --reload

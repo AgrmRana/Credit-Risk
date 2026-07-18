@@ -1,3 +1,4 @@
+import argparse
 import logging
 from pathlib import Path
 from typing import Any
@@ -12,19 +13,23 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, cross_v
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
+from credit_risk_platform.config.datasets import DATASET_REGISTRY
 from credit_risk_platform.config.settings import Settings, get_settings
 from credit_risk_platform.evaluation.explainability import write_explainability_artifacts
+from credit_risk_platform.evaluation.feature_report import write_feature_report
 from credit_risk_platform.evaluation.metrics import (
     classification_metrics,
     save_metrics,
     write_validation_plots,
 )
 from credit_risk_platform.feature_engineering.preprocessing import build_preprocessor
+from credit_risk_platform.feature_engineering.schema import FeatureEngineeringReport
 from credit_risk_platform.models.registry import save_model_bundle
 from credit_risk_platform.training.data import make_train_test_split
 from credit_risk_platform.utils.logging import configure_logging
 
 LOGGER = logging.getLogger(__name__)
+SCALED_MODEL_NAMES = {"logistic_regression", "ridge_logistic_regression"}
 
 
 def _candidate_models(random_state: int) -> dict[str, tuple[Any, dict[str, Any]]]:
@@ -70,11 +75,6 @@ def _candidate_models(random_state: int) -> dict[str, tuple[Any, dict[str, Any]]
     }
 
 
-def _feature_names(pipeline: Pipeline) -> list[str]:
-    preprocessor = pipeline.named_steps["preprocessor"]
-    return list(preprocessor.named_steps["columns"].get_feature_names_out())
-
-
 def _feature_importance(
     model: Pipeline,
     x_test: pd.DataFrame,
@@ -103,23 +103,32 @@ def _feature_importance(
     return importance
 
 
-def train_experiment(settings: Settings | None = None) -> dict[str, Any]:
+def train_experiment(
+    dataset_name: str | None = None, settings: Settings | None = None
+) -> dict[str, Any]:
     configure_logging()
     settings = settings or get_settings()
     settings.artifact_dir.mkdir(parents=True, exist_ok=True)
+    dataset_name = dataset_name or settings.default_dataset
 
-    bundle = make_train_test_split(random_state=settings.random_state)
+    bundle = make_train_test_split(dataset_name=dataset_name, random_state=settings.random_state)
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=settings.random_state)
     comparison: dict[str, Any] = {}
     best_name = ""
     best_search: RandomizedSearchCV | None = None
+    best_feature_report: FeatureEngineeringReport | None = None
     best_auc = -np.inf
 
     for name, (estimator, params) in _candidate_models(settings.random_state).items():
         LOGGER.info("Training candidate model: %s", name)
+        preprocessor, feature_report = build_preprocessor(
+            bundle.x_train,
+            ordinal_mappings=bundle.dataset_config.ordinal_mappings,
+            scale_numeric=name in SCALED_MODEL_NAMES,
+        )
         model = Pipeline(
             steps=[
-                ("preprocessor", build_preprocessor(bundle.x_train)),
+                ("preprocessor", preprocessor),
                 ("classifier", estimator),
             ]
         )
@@ -148,13 +157,15 @@ def train_experiment(settings: Settings | None = None) -> dict[str, Any]:
         metrics["cv_roc_auc_std"] = float(cv_scores["test_roc_auc"].std())
         metrics["cv_pr_auc_mean"] = float(cv_scores["test_average_precision"].mean())
         metrics["best_params"] = search.best_params_
+        metrics["numeric_scaled"] = name in SCALED_MODEL_NAMES
         comparison[name] = metrics
         if metrics["roc_auc"] > best_auc:
             best_auc = metrics["roc_auc"]
             best_name = name
             best_search = search
+            best_feature_report = feature_report
 
-    if best_search is None:
+    if best_search is None or best_feature_report is None:
         raise RuntimeError("No model was trained.")
 
     champion = best_search.best_estimator_
@@ -178,14 +189,30 @@ def train_experiment(settings: Settings | None = None) -> dict[str, Any]:
         settings.reports_dir,
         feature_importance["feature"].head(8).tolist(),
     )
+    feature_report_paths = write_feature_report(
+        best_feature_report,
+        feature_importance,
+        explainability_artifacts,
+        settings.reports_dir,
+        bundle.dataset_config.name,
+    )
 
+    target_definition = f"{bundle.dataset_config.target_column} mapped to default=1 / non-default=0"
     metrics_report = {
-        "dataset": "OpenML credit-g / UCI German Credit",
-        "target_definition": "bad credit risk mapped to default=1; good mapped to default=0",
+        "dataset": bundle.dataset_config.display_name,
+        "dataset_name": bundle.dataset_config.name,
+        "target_definition": target_definition,
         "champion_model": best_name,
         "model_comparison": comparison,
         "validation_artifacts": plot_paths,
         "explainability_artifacts": explainability_artifacts,
+        "feature_report_artifacts": feature_report_paths,
+        "feature_engineering_summary": {
+            "original_features": best_feature_report.original_features,
+            "derived_features": best_feature_report.derived_features,
+            "dropped_features": best_feature_report.dropped_features,
+            "encoding_summary": best_feature_report.encoding_summary,
+        },
         "top_features": feature_importance.head(10).to_dict(orient="records"),
         "n_train": int(len(bundle.x_train)),
         "n_test": int(len(bundle.x_test)),
@@ -196,6 +223,7 @@ def train_experiment(settings: Settings | None = None) -> dict[str, Any]:
         {
             "model": champion,
             "model_name": best_name,
+            "dataset_name": bundle.dataset_config.name,
             "metrics": metrics_report,
             "feature_names": bundle.feature_names,
             "target_definition": metrics_report["target_definition"],
@@ -205,7 +233,20 @@ def train_experiment(settings: Settings | None = None) -> dict[str, Any]:
     return metrics_report
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train credit risk PD models.")
+    parser.add_argument(
+        "--dataset",
+        default=get_settings().default_dataset,
+        choices=sorted(DATASET_REGISTRY),
+        help="Configured dataset to train on.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    report = train_experiment()
+    args = parse_args()
+    report = train_experiment(dataset_name=args.dataset)
+    print(f"Dataset: {report['dataset_name']}")
     print(f"Champion model: {report['champion_model']}")
     print(f"ROC AUC: {report['model_comparison'][report['champion_model']]['roc_auc']:.4f}")

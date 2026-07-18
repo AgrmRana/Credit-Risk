@@ -1,67 +1,122 @@
 import pandas as pd
-from sklearn.compose import ColumnTransformer, make_column_selector
+from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
+from credit_risk_platform.feature_engineering.schema import (
+    FeatureEngineeringReport,
+    infer_ordinal_mappings,
+    profile_schema,
+)
 from credit_risk_platform.feature_engineering.transformers import (
-    FeatureInteractionBuilder,
-    OutlierClipper,
+    DynamicCreditFeatureBuilder,
+    SelectiveOutlierClipper,
 )
 
-ORDINAL_CATEGORIES = {
-    "checking_status": ["no checking", "<0", "0<=X<200", ">=200"],
-    "savings_status": ["no known savings", "<100", "100<=X<500", "500<=X<1000", ">=1000"],
-    "employment": ["unemployed", "<1", "1<=X<4", "4<=X<7", ">=7"],
-}
 
+def build_preprocessor(
+    x_train: pd.DataFrame,
+    ordinal_mappings: dict[str, list] | None = None,
+    scale_numeric: bool = True,
+) -> tuple[Pipeline, FeatureEngineeringReport]:
+    """Build an adaptive preprocessing pipeline from the observed training schema."""
 
-def build_preprocessor(x_train: pd.DataFrame) -> Pipeline:
-    ordinal_cols = [col for col in ORDINAL_CATEGORIES if col in x_train.columns]
-    categorical_cols = [
-        col
-        for col in x_train.select_dtypes(include=["category", "object", "bool"]).columns
-        if col not in ordinal_cols
+    feature_builder = DynamicCreditFeatureBuilder().fit(x_train)
+    engineered_train = feature_builder.transform(x_train)
+    inferred_ordinals = infer_ordinal_mappings(engineered_train, ordinal_mappings)
+    schema = profile_schema(engineered_train, inferred_ordinals)
+
+    numeric_steps = [
+        ("imputer", SimpleImputer(strategy="median")),
+        ("clipper", SelectiveOutlierClipper()),
     ]
+    if scale_numeric:
+        numeric_steps.append(("scaler", StandardScaler()))
 
-    numeric_pipeline = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="median")),
-            ("clipper", OutlierClipper()),
-            ("scaler", StandardScaler()),
-        ]
-    )
-    ordinal_pipeline = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
+    transformers = []
+    if schema.numeric_columns:
+        transformers.append(("numeric", Pipeline(steps=numeric_steps), schema.numeric_columns))
+    if schema.boolean_columns:
+        transformers.append(
+            (
+                "boolean",
+                Pipeline(
+                    steps=[
+                        ("imputer", SimpleImputer(strategy="most_frequent")),
+                        (
+                            "ordinal",
+                            OrdinalEncoder(
+                                handle_unknown="use_encoded_value",
+                                unknown_value=-1,
+                            ),
+                        ),
+                    ]
+                ),
+                schema.boolean_columns,
+            )
+        )
+    if schema.ordinal_columns:
+        transformers.append(
             (
                 "ordinal",
-                OrdinalEncoder(
-                    categories=[ORDINAL_CATEGORIES[col] for col in ordinal_cols],
-                    handle_unknown="use_encoded_value",
-                    unknown_value=-1,
+                Pipeline(
+                    steps=[
+                        ("imputer", SimpleImputer(strategy="most_frequent")),
+                        (
+                            "ordinal",
+                            OrdinalEncoder(
+                                categories=[
+                                    inferred_ordinals[column] for column in schema.ordinal_columns
+                                ],
+                                handle_unknown="use_encoded_value",
+                                unknown_value=-1,
+                            ),
+                        ),
+                    ]
                 ),
-            ),
-        ]
-    )
-    categorical_pipeline = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("one_hot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-        ]
+                schema.ordinal_columns,
+            )
+        )
+    if schema.categorical_columns:
+        transformers.append(
+            (
+                "categorical",
+                Pipeline(
+                    steps=[
+                        ("imputer", SimpleImputer(strategy="most_frequent")),
+                        ("one_hot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+                    ]
+                ),
+                schema.categorical_columns,
+            )
+        )
+
+    report = FeatureEngineeringReport(
+        original_features=list(x_train.columns),
+        derived_features=feature_builder.derived_features_,
+        dropped_features=schema.dropped_columns + schema.date_columns,
+        numeric_columns=schema.numeric_columns,
+        categorical_columns=schema.categorical_columns,
+        ordinal_columns=schema.ordinal_columns,
+        boolean_columns=schema.boolean_columns,
+        date_columns=schema.date_columns,
+        missing_value_summary=x_train.isna().mean().sort_values(ascending=False).to_dict(),
+        encoding_summary={
+            "scaled_numeric" if scale_numeric else "unscaled_numeric": schema.numeric_columns,
+            "ordinal": schema.ordinal_columns,
+            "one_hot": schema.categorical_columns,
+            "boolean_ordinal": schema.boolean_columns,
+            "date_derived_then_dropped": schema.date_columns,
+        },
     )
 
-    transformers = [
-        ("numeric", numeric_pipeline, make_column_selector(dtype_include="number")),
-    ]
-    if ordinal_cols:
-        transformers.append(("ordinal", ordinal_pipeline, ordinal_cols))
-    if categorical_cols:
-        transformers.append(("categorical", categorical_pipeline, categorical_cols))
-
-    return Pipeline(
-        steps=[
-            ("interactions", FeatureInteractionBuilder()),
-            ("columns", ColumnTransformer(transformers=transformers, remainder="drop")),
-        ]
+    return (
+        Pipeline(
+            steps=[
+                ("features", feature_builder),
+                ("columns", ColumnTransformer(transformers=transformers, remainder="drop")),
+            ]
+        ),
+        report,
     )

@@ -4,19 +4,21 @@ Production-style internal banking application for estimating applicant Probabili
 
 ## Business Problem
 
-Credit officers need a consistent way to estimate default risk, review model evidence, and preserve prediction history. This project trains PD models on the public OpenML `credit-g` German Credit dataset and records predictions with model metadata.
+Credit officers need a consistent way to estimate default risk, review model evidence, and preserve prediction history. This project is now structured as a reusable credit risk ML framework: dataset configuration selects the source and target, while schema profiling and feature engineering adapt automatically to the available variables.
 
 ## Architecture Diagram
 
 ```mermaid
 flowchart LR
-    A["OpenML credit-g dataset"] --> B["Feature Engineering Pipeline"]
-    B --> C["Model Training and Tuning"]
-    C --> D["Validation and Explainability Artifacts"]
-    C --> E["Joblib Model Registry"]
-    E --> F["FastAPI Service"]
-    F --> G["PostgreSQL Prediction History"]
-    F --> H["React Risk Dashboard"]
+    A["Dataset Config"] --> B["Dataset Loader"]
+    B --> C["Schema Profiler"]
+    C --> D["Adaptive Feature Engineering"]
+    D --> E["Model Training and Tuning"]
+    E --> F["Validation, SHAP, PDP, Feature Report"]
+    E --> G["Joblib Model Registry"]
+    G --> H["FastAPI Service"]
+    H --> I["PostgreSQL Prediction History"]
+    H --> J["React Risk Dashboard"]
 ```
 
 ## Folder Structure
@@ -37,13 +39,35 @@ docs/                   model validation notes
 artifacts/              generated models, metrics, charts
 ```
 
-## Dataset
+## Supported Datasets
 
-The project uses the well-known OpenML `credit-g` version of the UCI German Credit dataset. The original `class` target is mapped to `default=1` for bad credit risk and `default=0` for good credit risk. No synthetic or fabricated training data is used.
+Dataset selection is configured in `backend/credit_risk_platform/config/datasets.py`.
+
+Supported dataset keys:
+
+- `german`: OpenML `credit-g` / UCI German Credit. Loaded automatically from OpenML.
+- `give_me_some_credit`: Give Me Some Credit. Place `cs-training.csv` at `data/raw/give_me_some_credit/cs-training.csv`.
+- `home_credit`: Home Credit Default Risk. Place `application_train.csv` at `data/raw/home_credit/application_train.csv`.
+
+Each dataset config only specifies source location, target column, optional target mapping, optional ordinal mappings, and optional ignored columns. No synthetic or fabricated training data is used.
 
 ## Feature Engineering
 
-Reusable modules support missing value handling, outlier clipping, ordinal encoding, one-hot encoding, scaling, feature interactions, and WOE encoding for scorecard-style experimentation.
+The pipeline inspects the selected dataframe and automatically determines numeric, categorical, ordinal, boolean, and date columns. It then builds a model-ready preprocessing graph without hardcoding dataset-specific feature names.
+
+Adaptive feature engineering creates features only when the source columns exist:
+
+- Loan amount plus duration creates repayment-intensity features.
+- Income plus loan amount creates debt-to-income ratio.
+- Savings or assets plus loan amount creates savings-to-loan ratio.
+- Age creates age bands and age squared.
+- Employment duration creates an employment stability score.
+- Existing loan counts plus loan amount create a credit exposure score.
+- Revolving balance plus credit limit creates utilization.
+- Delinquency or late-payment variables create delinquency counts and missed-payment ratios.
+- Date columns create month, quarter, and age-in-days fields before raw date columns are dropped.
+
+Ordinal encoding is used only for configured natural orderings or conservative inferred ordinal variables. Nominal variables use one-hot encoding. Numeric missing values use median imputation; categorical and boolean values use most-frequent imputation. Outlier clipping is selective and fitted only for heavy-tailed numeric variables. Logistic models receive scaled numeric features; tree models receive unscaled numeric features.
 
 ## Model Comparison
 
@@ -66,11 +90,24 @@ The platform produces permutation importance, SHAP summary plots when SHAP is av
 
 ## API
 
-Run the API:
+Train the default German Credit model:
 
 ```bash
 make install
 make train
+```
+
+Train a specific supported dataset:
+
+```bash
+PYTHONPATH=backend python -m credit_risk_platform.training.train --dataset german
+PYTHONPATH=backend python -m credit_risk_platform.training.train --dataset give_me_some_credit
+PYTHONPATH=backend python -m credit_risk_platform.training.train --dataset home_credit
+```
+
+Run the API:
+
+```bash
 make api
 ```
 
@@ -107,6 +144,15 @@ npm run dev
 ```
 
 Pages include Dashboard, Single Prediction, Batch Prediction, Model Metrics, Feature Importance, and Prediction History.
+
+## Feature Reports
+
+Every training run generates:
+
+- `artifacts/reports/<dataset>_feature_report.md`
+- `artifacts/reports/<dataset>_feature_report.html`
+
+The report includes original features, derived features, dropped features, missing value summary, categorical encoding summary, feature importance, and links to SHAP/PDP artifacts.
 
 ## Screenshots
 

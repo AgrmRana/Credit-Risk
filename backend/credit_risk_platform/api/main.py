@@ -57,10 +57,10 @@ async def batch_predict(file: UploadFile = File(...), db: Session = Depends(get_
 
 
 @app.post("/train")
-def train() -> dict:
+def train(dataset: str | None = None) -> dict:
     from credit_risk_platform.training.train import train_experiment
 
-    report = train_experiment()
+    report = train_experiment(dataset_name=dataset)
     return {"status": "trained", "champion_model": report["champion_model"], "metrics": report}
 
 
@@ -73,6 +73,7 @@ def model_info() -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {
         "model_name": bundle["model_name"],
+        "dataset_name": bundle.get("dataset_name"),
         "features": bundle["feature_names"],
         "target_definition": bundle["target_definition"],
         "saved_at": bundle.get("saved_at"),

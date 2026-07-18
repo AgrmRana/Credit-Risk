@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     metrics_path: Path = Path("artifacts/metrics.json")
     feature_importance_path: Path = Path("artifacts/feature_importance.csv")
     reports_dir: Path = Path("artifacts/reports")
+    default_dataset: str = "german"
     random_state: int = 42
 
 

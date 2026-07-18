@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Feature Engineering Report: german</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #18202b; line-height: 1.45; }
+    h1, h2 { color: #0f172a; }
+    code { background: #eef2f6; padding: 2px 4px; border-radius: 4px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border-bottom: 1px solid #d9dee7; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Feature Engineering Report: german</h1>
+  <h2>Original Features</h2>
+  <ul><li><code>checking_status</code></li><li><code>duration</code></li><li><code>credit_history</code></li><li><code>purpose</code></li><li><code>credit_amount</code></li><li><code>savings_status</code></li><li><code>employment</code></li><li><code>installment_commitment</code></li><li><code>personal_status</code></li><li><code>other_parties</code></li><li><code>residence_since</code></li><li><code>property_magnitude</code></li><li><code>age</code></li><li><code>other_payment_plans</code></li><li><code>housing</code></li><li><code>existing_credits</code></li><li><code>job</code></li><li><code>num_dependents</code></li><li><code>own_telephone</code></li><li><code>foreign_worker</code></li></ul>
+  <h2>Derived Features</h2>
+  <ul><li><code>credit_amount_per_duration</code></li><li><code>age_squared</code></li><li><code>age_band</code></li><li><code>credit_exposure_score</code></li></ul>
+  <h2>Dropped Features</h2>
+  <ul><li>None</li></ul>
+  <h2>Missing Value Summary</h2>
+  <p>No missing values detected in the top missingness summary.</p>
+  <h2>Categorical Encoding Summary</h2>
+  <ul>
+    <li>Numeric columns: 11</li>
+    <li>Boolean columns: 1</li>
+    <li>Ordinal encoded columns: 3</li>
+    <li>One-hot encoded columns: 9</li>
+    <li>Date columns transformed then dropped: 0</li>
+  </ul>
+  <h2>Feature Importance</h2>
+  <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>feature</th>
+      <th>importance_mean</th>
+      <th>importance_std</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>checking_status</td>
+      <td>0.125500</td>
+      <td>0.033816</td>
+    </tr>
+    <tr>
+      <td>duration</td>
+      <td>0.045488</td>
+      <td>0.011479</td>
+    </tr>
+    <tr>
+      <td>credit_amount</td>
+      <td>0.039762</td>
+      <td>0.017984</td>
+    </tr>
+    <tr>
+      <td>credit_history</td>
+      <td>0.029702</td>
+      <td>0.011537</td>
+    </tr>
+    <tr>
+      <td>purpose</td>
+      <td>0.014512</td>
+      <td>0.005642</td>
+    </tr>
+    <tr>
+      <td>age</td>
+      <td>0.011560</td>
+      <td>0.007035</td>
+    </tr>
+    <tr>
+      <td>other_parties</td>
+      <td>0.008262</td>
+      <td>0.004015</td>
+    </tr>
+    <tr>
+      <td>own_telephone</td>
+      <td>0.006679</td>
+      <td>0.004555</td>
+    </tr>
+    <tr>
+      <td>other_payment_plans</td>
+      <td>0.005488</td>
+      <td>0.005810</td>
+    </tr>
+    <tr>
+      <td>savings_status</td>
+      <td>0.005214</td>
+      <td>0.007532</td>
+    </tr>
+    <tr>
+      <td>residence_since</td>
+      <td>0.004988</td>
+      <td>0.001703</td>
+    </tr>
+    <tr>
+      <td>installment_commitment</td>
+      <td>0.002000</td>
+      <td>0.003896</td>
+    </tr>
+    <tr>
+      <td>employment</td>
+      <td>0.001702</td>
+      <td>0.006188</td>
+    </tr>
+    <tr>
+      <td>foreign_worker</td>
+      <td>0.000857</td>
+      <td>0.000756</td>
+    </tr>
+    <tr>
+      <td>job</td>
+      <td>0.000655</td>
+      <td>0.003376</td>
+    </tr>
+    <tr>
+      <td>personal_status</td>
+      <td>0.000286</td>
+      <td>0.007884</td>
+    </tr>
+    <tr>
+      <td>housing</td>
+      <td>-0.000226</td>
+      <td>0.005191</td>
+    </tr>
+    <tr>
+      <td>property_magnitude</td>
+      <td>-0.000262</td>
+      <td>0.006947</td>
+    </tr>
+    <tr>
+      <td>num_dependents</td>
+      <td>-0.000631</td>
+      <td>0.001432</td>
+    </tr>
+    <tr>
+      <td>existing_credits</td>
+      <td>-0.002226</td>
+      <td>0.005111</td>
+    </tr>
+  </tbody>
+</table>
+  <h2>Explainability Artifacts</h2>
+  <ul><li>partial_dependence: <code>artifacts/reports/partial_dependence.png</code></li><li>shap_summary: <code>artifacts/reports/shap_summary.png</code></li></ul>
+</body>
+</html>
