@@ -48,6 +48,45 @@ def test_register_dataset_and_train_end_to_end(tmp_path: Path) -> None:
     assert settings.model_artifact_path.exists()
 
 
+def test_cv_folds_and_mse_selection(tmp_path: Path) -> None:
+    frame = _synthetic_frame()
+    frame["outcome"] = frame["outcome"].apply(lambda value: 1 if value == "bad" else 0)
+    csv_path = tmp_path / "data.csv"
+    frame.to_csv(csv_path, index=False)
+
+    config = DatasetConfig(
+        name="test_cv_folds",
+        display_name="Test CV folds dataset",
+        target_column="outcome",
+        source_type="csv",
+        csv_path=csv_path,
+    )
+    register_dataset(config)
+
+    settings = Settings(
+        model_artifact_path=tmp_path / "model.joblib",
+        metrics_path=tmp_path / "metrics.json",
+        feature_importance_path=tmp_path / "feature_importance.csv",
+        reports_dir=tmp_path / "reports",
+    )
+    report = train_experiment(
+        dataset_name="test_cv_folds",
+        settings=settings,
+        cv_folds=3,
+        selection_metric="cv_test_mse",
+    )
+
+    comparison = report["model_comparison"]
+    assert report["cv_folds"] == 3
+    assert report["selection_metric"] == "cv_test_mse"
+    for metrics in comparison.values():
+        assert metrics["cv_folds"] == 3
+        assert "cv_test_mse" in metrics
+
+    champion_mse = comparison[report["champion_model"]]["cv_test_mse"]
+    assert champion_mse == min(metrics["cv_test_mse"] for metrics in comparison.values())
+
+
 def test_load_credit_dataset_rejects_non_numeric_multi_valued_target(tmp_path: Path) -> None:
     from credit_risk_platform.training.data import load_credit_dataset
 

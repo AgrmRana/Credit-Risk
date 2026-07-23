@@ -9,7 +9,12 @@ from scipy.stats import randint, uniform
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, cross_validate
+from sklearn.model_selection import (
+    RandomizedSearchCV,
+    StratifiedKFold,
+    cross_val_predict,
+    cross_validate,
+)
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
@@ -104,20 +109,31 @@ def _feature_importance(
 
 
 def train_experiment(
-    dataset_name: str | None = None, settings: Settings | None = None
+    dataset_name: str | None = None,
+    settings: Settings | None = None,
+    cv_folds: int = 5,
+    selection_metric: str = "roc_auc",
 ) -> dict[str, Any]:
+    """Train and compare candidate models.
+
+    ``selection_metric`` picks the champion: any key present in each model's metrics dict.
+    ``cv_test_mse`` is treated as lower-is-better (it's the out-of-fold Brier score / MSE
+    between predicted probability and actual outcome across the k CV folds); every other
+    metric is treated as higher-is-better.
+    """
     configure_logging()
     settings = settings or get_settings()
     settings.artifact_dir.mkdir(parents=True, exist_ok=True)
     dataset_name = dataset_name or settings.default_dataset
+    lower_is_better = selection_metric == "cv_test_mse"
 
     bundle = make_train_test_split(dataset_name=dataset_name, random_state=settings.random_state)
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=settings.random_state)
+    cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=settings.random_state)
     comparison: dict[str, Any] = {}
     best_name = ""
     best_search: RandomizedSearchCV | None = None
     best_feature_report: FeatureEngineeringReport | None = None
-    best_auc = -np.inf
+    best_score = np.inf if lower_is_better else -np.inf
 
     for name, (estimator, params) in _candidate_models(settings.random_state).items():
         LOGGER.info("Training candidate model: %s", name)
@@ -151,16 +167,34 @@ def train_experiment(
             cv=cv,
             n_jobs=-1,
         )
+        out_of_fold_proba = cross_val_predict(
+            search.best_estimator_,
+            bundle.x_train,
+            bundle.y_train,
+            cv=cv,
+            method="predict_proba",
+            n_jobs=-1,
+        )[:, 1]
+        cv_test_mse = float(np.mean((bundle.y_train.to_numpy() - out_of_fold_proba) ** 2))
+
         y_score = search.predict_proba(bundle.x_test)[:, 1]
         metrics = classification_metrics(bundle.y_test.to_numpy(), y_score)
         metrics["cv_roc_auc_mean"] = float(cv_scores["test_roc_auc"].mean())
         metrics["cv_roc_auc_std"] = float(cv_scores["test_roc_auc"].std())
         metrics["cv_pr_auc_mean"] = float(cv_scores["test_average_precision"].mean())
+        metrics["cv_test_mse"] = cv_test_mse
+        metrics["cv_folds"] = cv_folds
         metrics["best_params"] = search.best_params_
         metrics["numeric_scaled"] = name in SCALED_MODEL_NAMES
         comparison[name] = metrics
-        if metrics["roc_auc"] > best_auc:
-            best_auc = metrics["roc_auc"]
+
+        candidate_score = metrics[selection_metric]
+        if lower_is_better:
+            is_better = candidate_score < best_score
+        else:
+            is_better = candidate_score > best_score
+        if is_better:
+            best_score = candidate_score
             best_name = name
             best_search = search
             best_feature_report = feature_report
@@ -203,6 +237,8 @@ def train_experiment(
         "dataset_name": bundle.dataset_config.name,
         "target_definition": target_definition,
         "champion_model": best_name,
+        "selection_metric": selection_metric,
+        "cv_folds": cv_folds,
         "model_comparison": comparison,
         "validation_artifacts": plot_paths,
         "explainability_artifacts": explainability_artifacts,

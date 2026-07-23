@@ -83,11 +83,15 @@ brew install libomp
    or date, and only columns with exactly two unique values are offered as the target (the engine
    is binary-classification only). If the target isn't already `0`/`1`, you're asked which value
    means the positive/default outcome.
-2. The dataset is registered at runtime and run through the **same** training pipeline described
-   below — four candidate models are tuned and compared, and the best one by ROC AUC becomes the
+2. You choose **k**, the number of cross-validation folds. The dataset is registered at runtime
+   and run through the **same** training pipeline described below — four candidate models are
+   tuned, then each is scored with k-fold cross validation using the out-of-fold predicted
+   probabilities to compute a **test MSE** (the Brier score: mean squared error between predicted
+   probability and actual outcome). The model with the lowest cross-validated test MSE becomes the
    champion for that run.
-3. Results (model comparison table, ROC/calibration curves, lift/gain, SHAP summary, feature
-   engineering report) are displayed directly in the browser.
+3. Results include a **leaderboard** ranking every candidate by cross-validated test MSE (with the
+   winner highlighted), the full metrics comparison table, ROC/calibration curves, lift/gain, SHAP
+   summary, and the feature engineering report — all displayed directly in the browser.
 4. A **Score a Record** tab lets you fill in one new record's values and get its PD, risk band,
    and business decision from the model just trained — still entirely in memory.
 5. Clicking **Start Over** (or just closing the app) discards everything. Nothing is written to

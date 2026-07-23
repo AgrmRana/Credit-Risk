@@ -48,7 +48,7 @@ def _detect_columns(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, list[A
 
 
 def run_pipeline(
-    frame: pd.DataFrame, target_column: str, positive_label: str | None
+    frame: pd.DataFrame, target_column: str, positive_label: str | None, cv_folds: int
 ) -> dict[str, Any]:
     frame = frame.copy()
     if positive_label is not None:
@@ -78,7 +78,12 @@ def run_pipeline(
             feature_importance_path=tmp_path / "feature_importance.csv",
             reports_dir=tmp_path / "reports",
         )
-        metrics_report = train_experiment(dataset_name=dataset_id, settings=settings)
+        metrics_report = train_experiment(
+            dataset_name=dataset_id,
+            settings=settings,
+            cv_folds=cv_folds,
+            selection_metric="cv_test_mse",
+        )
         bundle = load_model_bundle(settings.model_artifact_path)
 
         artifact_paths = {
@@ -114,11 +119,30 @@ def render_results(result: dict[str, Any]) -> None:
     metrics = result["metrics"]
     comparison = metrics["model_comparison"]
     champion = metrics["champion_model"]
+    cv_folds = metrics.get("cv_folds")
 
     st.subheader(f"Champion model: {champion}")
+    st.caption(
+        f"Selected as the lowest {cv_folds}-fold cross-validated test MSE "
+        "(out-of-fold Brier score) across all candidates."
+    )
+
+    leaderboard = (
+        pd.DataFrame(comparison)
+        .T[["cv_test_mse", "roc_auc", "pr_auc"]]
+        .sort_values("cv_test_mse")
+        .rename(columns={"cv_test_mse": f"cv_test_mse (k={cv_folds})"})
+    )
+    st.subheader("Leaderboard: Cross-Validated Test MSE")
+    st.dataframe(
+        leaderboard.style.highlight_min(subset=[f"cv_test_mse (k={cv_folds})"], color="#0f766e33"),
+        use_container_width=True,
+    )
+
     comparison_table = pd.DataFrame(comparison).T[
         ["roc_auc", "pr_auc", "ks_statistic", "gini", "precision", "recall", "f1", "threshold"]
     ]
+    st.subheader("Full Model Comparison")
     st.dataframe(comparison_table, use_container_width=True)
 
     images = result["images"]
@@ -221,9 +245,25 @@ def main() -> None:
             [str(value) for value in uniques],
         )
 
+    min_class_count = int(frame[target_column].dropna().value_counts().min())
+    max_folds = max(2, min_class_count)
+    cv_folds = st.number_input(
+        "Number of cross-validation folds (k)",
+        min_value=2,
+        max_value=max_folds,
+        value=min(5, max_folds),
+        step=1,
+        help=(
+            "Each candidate model is evaluated with k-fold cross validation; the model with "
+            "the lowest cross-validated test MSE (out-of-fold Brier score) becomes the champion."
+        ),
+    )
+
     if st.button("Run Analysis", type="primary"):
         with st.spinner("Training and comparing candidate models..."):
-            st.session_state["result"] = run_pipeline(frame, target_column, positive_label)
+            st.session_state["result"] = run_pipeline(
+                frame, target_column, positive_label, int(cv_folds)
+            )
 
     result = st.session_state.get("result")
     if result:
