@@ -290,6 +290,25 @@ def main() -> None:
         )
         return
 
+    st.subheader("Potential Target Variables")
+    preview_rows = []
+    for column in classification_columns:
+        column_uniques = sorted(frame[column].dropna().unique().tolist(), key=str)
+        if len(column_uniques) == 2 and {str(v) for v in column_uniques} <= {"0", "1"}:
+            encoding = "already 0/1 (assumes 1 = positive/default outcome)"
+        elif len(column_uniques) == 2:
+            encoding = (
+                f"'{column_uniques[0]}' / '{column_uniques[1]}' — you'll choose which is positive"
+            )
+        else:
+            encoding = ", ".join(
+                f"'{value}' → {index}" for index, value in enumerate(column_uniques)
+            )
+        preview_rows.append(
+            {"column": column, "classes": len(column_uniques), "encoding": encoding}
+        )
+    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True)
+
     target_column = st.selectbox(
         "Target variable (what you want to predict)", classification_columns
     )

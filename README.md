@@ -116,9 +116,15 @@ correctly:
   a real convention some datasets use), predictions, risk bands, and Approve/Reject decisions will
   come out inverted, with no warning. If you're not sure which way your data is encoded, safest is
   to check it yourself before uploading, or re-map it so `1` clearly means the bad/default outcome.
+- **A "Potential Target Variables" table lists every column that could be a target — before you
+  pick one.** For each candidate it shows the column name, how many classes it has, and its
+  encoding: `already 0/1 (assumes 1 = positive/default outcome)` for already-binary columns, the
+  two raw values for a 2-class column you haven't assigned yet, or the full class → code mapping
+  for any 3+ class column. This is a preview of every candidate at once, not just the one currently
+  selected in the dropdown below it.
 - **For a 2-class target that isn't already `0`/`1`, or any 3+ class target, nothing is assumed.**
-  You either pick which value is positive (binary), or the app shows you the full class → code
-  mapping on screen before training (multi-class) — see the example in the section above.
+  Once selected, you either pick which value is positive (binary), or the app confirms the same
+  class → code mapping again before training (multi-class).
 - **Score a Record always displays the original values, never the internal numeric codes** — this
   applies whether those original values are qualitative (`"high"`, `"medium"`, `"low"`) or
   themselves numeric (e.g. a `risk_score` column with values `1`–`5`). Internally every target is
