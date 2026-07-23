@@ -1,5 +1,7 @@
 import argparse
 import logging
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -126,6 +128,7 @@ def train_experiment(
     cv_folds: int = 5,
     selection_metric: str = "roc_auc",
     class_names: dict[int, str] | None = None,
+    progress_callback: Callable[[int, int, float], None] | None = None,
 ) -> dict[str, Any]:
     """Train and compare candidate models. Supports binary or multi-class targets.
 
@@ -133,7 +136,9 @@ def train_experiment(
     ``cv_test_mse`` is treated as lower-is-better (it's the out-of-fold Brier score / MSE
     between predicted probability and actual outcome across the k CV folds); every other
     metric is treated as higher-is-better. ``class_names`` (code -> original label) is used
-    only to label the confusion matrix plot for multi-class targets.
+    only to label the confusion matrix plot for multi-class targets. ``progress_callback``, if
+    given, is called as ``callback(models_done, total_models, elapsed_seconds)`` after each
+    candidate model finishes, so a caller (e.g. a UI) can estimate time remaining.
     """
     configure_logging()
     settings = settings or get_settings()
@@ -152,7 +157,9 @@ def train_experiment(
     best_score = np.inf if lower_is_better else -np.inf
 
     candidates = _candidate_models(settings.random_state, num_classes=num_classes)
-    for name, (estimator, params) in candidates.items():
+    total_candidates = len(candidates)
+    start_time = time.monotonic()
+    for position, (name, (estimator, params)) in enumerate(candidates.items(), start=1):
         LOGGER.info("Training candidate model: %s", name)
         preprocessor, feature_report = build_preprocessor(
             bundle.x_train,
@@ -221,6 +228,9 @@ def train_experiment(
             best_name = name
             best_search = search
             best_feature_report = feature_report
+
+        if progress_callback is not None:
+            progress_callback(position, total_candidates, time.monotonic() - start_time)
 
     if best_search is None or best_feature_report is None:
         raise RuntimeError("No model was trained.")

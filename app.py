@@ -5,6 +5,7 @@ Nothing persists between browser sessions or app restarts.
 """
 
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,7 @@ def run_pipeline(
     target_column: str,
     class_mapping: dict[str, int] | None,
     cv_folds: int,
+    progress_callback: Callable[[int, int, float], None] | None = None,
 ) -> dict[str, Any]:
     frame = frame.copy()
     class_names: dict[int, str] | None = None
@@ -93,6 +95,7 @@ def run_pipeline(
             cv_folds=cv_folds,
             selection_metric="cv_test_mse",
             class_names=class_names,
+            progress_callback=progress_callback,
         )
         bundle = load_model_bundle(settings.model_artifact_path)
 
@@ -345,10 +348,29 @@ def main() -> None:
     )
 
     if st.button("Run Analysis", type="primary"):
-        with st.spinner("Training and comparing candidate models..."):
-            st.session_state["result"] = run_pipeline(
-                frame, target_column, class_mapping, int(cv_folds)
-            )
+        progress_bar = st.progress(0.0)
+        status_text = st.empty()
+        status_text.text("Training and comparing candidate models...")
+
+        def report_progress(completed: int, total: int, elapsed_seconds: float) -> None:
+            progress_bar.progress(completed / total)
+            if completed < total:
+                seconds_per_model = elapsed_seconds / completed
+                remaining_seconds = seconds_per_model * (total - completed)
+                status_text.text(
+                    f"Trained {completed}/{total} candidate models — "
+                    f"estimated time remaining: ~{remaining_seconds:.0f}s"
+                )
+            else:
+                status_text.text(
+                    f"Trained {completed}/{total} candidate models — finalizing results..."
+                )
+
+        st.session_state["result"] = run_pipeline(
+            frame, target_column, class_mapping, int(cv_folds), progress_callback=report_progress
+        )
+        progress_bar.empty()
+        status_text.empty()
 
     result = st.session_state.get("result")
     if result:

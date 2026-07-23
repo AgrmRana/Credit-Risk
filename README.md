@@ -89,7 +89,10 @@ brew install libomp
    tuned, then each is scored with k-fold cross validation using the out-of-fold predicted
    probabilities to compute a **test MSE** (the Brier score: mean squared error between predicted
    probability and actual outcome, generalized to multi-class as the sum of squared errors across
-   all classes). The model with the lowest cross-validated test MSE becomes the champion.
+   all classes). The model with the lowest cross-validated test MSE becomes the champion. A
+   progress bar and a dynamically updating "Trained X/4 candidate models — estimated time
+   remaining: ~Ns" message track training as it happens, with the estimate recalculated after each
+   model finishes based on the average time per model so far.
 3. Results include a **leaderboard** ranking every candidate by cross-validated test MSE (with the
    winner highlighted) and the full metrics comparison table. For a binary target this also shows
    ROC/calibration curves and a lift/gain table; for multi-class it shows a confusion matrix
