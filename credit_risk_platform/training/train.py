@@ -37,10 +37,21 @@ LOGGER = logging.getLogger(__name__)
 SCALED_MODEL_NAMES = {"logistic_regression", "ridge_logistic_regression"}
 
 
-def _candidate_models(random_state: int) -> dict[str, tuple[Any, dict[str, Any]]]:
+def _candidate_models(
+    random_state: int, num_classes: int = 2
+) -> dict[str, tuple[Any, dict[str, Any]]]:
+    if num_classes > 2:
+        xgb_objective, xgb_eval_metric = "multi:softprob", "mlogloss"
+        # liblinear only supports one-vs-rest for multi-class and sklearn is deprecating that
+        # combination (it will error in a future version); lbfgs handles multinomial natively.
+        logistic_solver = "lbfgs"
+    else:
+        xgb_objective, xgb_eval_metric = "binary:logistic", "logloss"
+        logistic_solver = "liblinear"
+
     return {
         "logistic_regression": (
-            LogisticRegression(max_iter=2000, solver="liblinear", random_state=random_state),
+            LogisticRegression(max_iter=2000, solver=logistic_solver, random_state=random_state),
             {"classifier__C": uniform(0.05, 8.0), "classifier__class_weight": [None, "balanced"]},
         ),
         "ridge_logistic_regression": (
@@ -63,8 +74,8 @@ def _candidate_models(random_state: int) -> dict[str, tuple[Any, dict[str, Any]]
         ),
         "xgboost": (
             XGBClassifier(
-                objective="binary:logistic",
-                eval_metric="logloss",
+                objective=xgb_objective,
+                eval_metric=xgb_eval_metric,
                 tree_method="hist",
                 random_state=random_state,
                 n_jobs=-1,
@@ -86,6 +97,7 @@ def _feature_importance(
     y_test: pd.Series,
     output_path: Path,
     random_state: int,
+    scoring: str = "roc_auc",
 ) -> pd.DataFrame:
     result = permutation_importance(
         model,
@@ -93,7 +105,7 @@ def _feature_importance(
         y_test,
         n_repeats=10,
         random_state=random_state,
-        scoring="roc_auc",
+        scoring=scoring,
         n_jobs=-1,
     )
     importance = pd.DataFrame(
@@ -113,13 +125,15 @@ def train_experiment(
     settings: Settings | None = None,
     cv_folds: int = 5,
     selection_metric: str = "roc_auc",
+    class_names: dict[int, str] | None = None,
 ) -> dict[str, Any]:
-    """Train and compare candidate models.
+    """Train and compare candidate models. Supports binary or multi-class targets.
 
     ``selection_metric`` picks the champion: any key present in each model's metrics dict.
     ``cv_test_mse`` is treated as lower-is-better (it's the out-of-fold Brier score / MSE
     between predicted probability and actual outcome across the k CV folds); every other
-    metric is treated as higher-is-better.
+    metric is treated as higher-is-better. ``class_names`` (code -> original label) is used
+    only to label the confusion matrix plot for multi-class targets.
     """
     configure_logging()
     settings = settings or get_settings()
@@ -128,6 +142,8 @@ def train_experiment(
     lower_is_better = selection_metric == "cv_test_mse"
 
     bundle = make_train_test_split(dataset_name=dataset_name, random_state=settings.random_state)
+    num_classes = int(bundle.y_train.nunique())
+    scoring_metric = "roc_auc" if num_classes == 2 else "roc_auc_ovr_weighted"
     cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=settings.random_state)
     comparison: dict[str, Any] = {}
     best_name = ""
@@ -135,7 +151,8 @@ def train_experiment(
     best_feature_report: FeatureEngineeringReport | None = None
     best_score = np.inf if lower_is_better else -np.inf
 
-    for name, (estimator, params) in _candidate_models(settings.random_state).items():
+    candidates = _candidate_models(settings.random_state, num_classes=num_classes)
+    for name, (estimator, params) in candidates.items():
         LOGGER.info("Training candidate model: %s", name)
         preprocessor, feature_report = build_preprocessor(
             bundle.x_train,
@@ -152,18 +169,19 @@ def train_experiment(
             estimator=model,
             param_distributions=params,
             n_iter=8,
-            scoring="roc_auc",
+            scoring=scoring_metric,
             cv=cv,
             n_jobs=-1,
             random_state=settings.random_state,
             refit=True,
         )
         search.fit(bundle.x_train, bundle.y_train)
+        cv_scoring = [scoring_metric] if num_classes > 2 else [scoring_metric, "average_precision"]
         cv_scores = cross_validate(
             search.best_estimator_,
             bundle.x_train,
             bundle.y_train,
-            scoring=["roc_auc", "average_precision"],
+            scoring=cv_scoring,
             cv=cv,
             n_jobs=-1,
         )
@@ -174,14 +192,19 @@ def train_experiment(
             cv=cv,
             method="predict_proba",
             n_jobs=-1,
-        )[:, 1]
-        cv_test_mse = float(np.mean((bundle.y_train.to_numpy() - out_of_fold_proba) ** 2))
+        )
+        if num_classes == 2:
+            cv_test_mse = float(np.mean((bundle.y_train.to_numpy() - out_of_fold_proba[:, 1]) ** 2))
+        else:
+            one_hot_true = np.eye(num_classes)[bundle.y_train.to_numpy()]
+            cv_test_mse = float(np.mean(np.sum((one_hot_true - out_of_fold_proba) ** 2, axis=1)))
 
-        y_score = search.predict_proba(bundle.x_test)[:, 1]
-        metrics = classification_metrics(bundle.y_test.to_numpy(), y_score)
-        metrics["cv_roc_auc_mean"] = float(cv_scores["test_roc_auc"].mean())
-        metrics["cv_roc_auc_std"] = float(cv_scores["test_roc_auc"].std())
-        metrics["cv_pr_auc_mean"] = float(cv_scores["test_average_precision"].mean())
+        y_score = search.predict_proba(bundle.x_test)
+        metrics = classification_metrics(bundle.y_test.to_numpy(), y_score, num_classes=num_classes)
+        metrics["cv_roc_auc_mean"] = float(cv_scores[f"test_{scoring_metric}"].mean())
+        metrics["cv_roc_auc_std"] = float(cv_scores[f"test_{scoring_metric}"].std())
+        if num_classes == 2:
+            metrics["cv_pr_auc_mean"] = float(cv_scores["test_average_precision"].mean())
         metrics["cv_test_mse"] = cv_test_mse
         metrics["cv_folds"] = cv_folds
         metrics["best_params"] = search.best_params_
@@ -203,12 +226,14 @@ def train_experiment(
         raise RuntimeError("No model was trained.")
 
     champion = best_search.best_estimator_
-    champion_scores = champion.predict_proba(bundle.x_test)[:, 1]
+    champion_scores = champion.predict_proba(bundle.x_test)
     plot_paths = write_validation_plots(
         bundle.y_test.to_numpy(),
         champion_scores,
         settings.reports_dir,
         prefix=best_name,
+        num_classes=num_classes,
+        class_names=class_names,
     )
     feature_importance = _feature_importance(
         champion,
@@ -216,6 +241,7 @@ def train_experiment(
         bundle.y_test,
         settings.feature_importance_path,
         settings.random_state,
+        scoring=scoring_metric,
     )
     explainability_artifacts = write_explainability_artifacts(
         champion,
@@ -231,7 +257,16 @@ def train_experiment(
         bundle.dataset_config.name,
     )
 
-    target_definition = f"{bundle.dataset_config.target_column} mapped to default=1 / non-default=0"
+    if num_classes == 2:
+        target_definition = (
+            f"{bundle.dataset_config.target_column} mapped to default=1 / non-default=0"
+        )
+    else:
+        labels = ", ".join(f"{code}={label}" for code, label in sorted((class_names or {}).items()))
+        target_definition = (
+            f"{bundle.dataset_config.target_column} classified into {num_classes} classes"
+            + (f" ({labels})" if labels else "")
+        )
     metrics_report = {
         "dataset": bundle.dataset_config.display_name,
         "dataset_name": bundle.dataset_config.name,
@@ -239,6 +274,8 @@ def train_experiment(
         "champion_model": best_name,
         "selection_metric": selection_metric,
         "cv_folds": cv_folds,
+        "num_classes": num_classes,
+        "class_names": class_names,
         "model_comparison": comparison,
         "validation_artifacts": plot_paths,
         "explainability_artifacts": explainability_artifacts,

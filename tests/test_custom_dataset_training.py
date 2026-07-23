@@ -87,6 +87,61 @@ def test_cv_folds_and_mse_selection(tmp_path: Path) -> None:
     assert champion_mse == min(metrics["cv_test_mse"] for metrics in comparison.values())
 
 
+def test_multiclass_target_end_to_end(tmp_path: Path) -> None:
+    labels = ["A", "B", "C"]
+    records = []
+    for i in range(60):
+        label = labels[i % 3]
+        base = {"A": 1000, "B": 1500, "C": 2000}[label]
+        records.append(
+            {
+                "income": base + (i * 17 % 200),
+                "loan_amount": 300 + (i * 29 % 400),
+                "outcome": label,
+            }
+        )
+    frame = pd.DataFrame(records)
+    class_mapping = {value: index for index, value in enumerate(labels)}
+    frame["outcome"] = frame["outcome"].map(class_mapping)
+    csv_path = tmp_path / "data.csv"
+    frame.to_csv(csv_path, index=False)
+
+    config = DatasetConfig(
+        name="test_multiclass",
+        display_name="Test multiclass dataset",
+        target_column="outcome",
+        source_type="csv",
+        csv_path=csv_path,
+    )
+    register_dataset(config)
+
+    settings = Settings(
+        model_artifact_path=tmp_path / "model.joblib",
+        metrics_path=tmp_path / "metrics.json",
+        feature_importance_path=tmp_path / "feature_importance.csv",
+        reports_dir=tmp_path / "reports",
+    )
+    class_names = {code: label for label, code in class_mapping.items()}
+    report = train_experiment(
+        dataset_name="test_multiclass",
+        settings=settings,
+        cv_folds=3,
+        selection_metric="cv_test_mse",
+        class_names=class_names,
+    )
+
+    assert report["num_classes"] == 3
+    assert report["class_names"] == class_names
+    champion_metrics = report["model_comparison"][report["champion_model"]]
+    assert "accuracy" in champion_metrics
+    assert "ks_statistic" not in champion_metrics
+    matrix = champion_metrics["confusion_matrix"]
+    assert len(matrix) == 3
+    assert all(len(row) == 3 for row in matrix)
+    assert "confusion_matrix" in report["validation_artifacts"]
+    assert Path(report["validation_artifacts"]["confusion_matrix"]).exists()
+
+
 def test_load_credit_dataset_rejects_non_numeric_multi_valued_target(tmp_path: Path) -> None:
     from credit_risk_platform.training.data import load_credit_dataset
 

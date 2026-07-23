@@ -80,20 +80,26 @@ brew install libomp
 ## What happens when you click "Run Analysis"
 
 1. The uploaded CSV is profiled: columns are classified as numeric, categorical, ordinal, boolean,
-   or date, and only columns with exactly two unique values are offered as the target (the engine
-   is binary-classification only). If the target isn't already `0`/`1`, you're asked which value
-   means the positive/default outcome.
+   or date, and any column with between 2 and 20 unique values is offered as the target — binary
+   or multi-class. For a binary target not already `0`/`1`, you're asked which value means the
+   positive/default outcome; for 3+ classes, each value is automatically assigned a numeric code
+   and the mapping is shown on screen.
 2. You choose **k**, the number of cross-validation folds. The dataset is registered at runtime
    and run through the **same** training pipeline described below — four candidate models are
    tuned, then each is scored with k-fold cross validation using the out-of-fold predicted
    probabilities to compute a **test MSE** (the Brier score: mean squared error between predicted
-   probability and actual outcome). The model with the lowest cross-validated test MSE becomes the
-   champion for that run.
+   probability and actual outcome, generalized to multi-class as the sum of squared errors across
+   all classes). The model with the lowest cross-validated test MSE becomes the champion.
 3. Results include a **leaderboard** ranking every candidate by cross-validated test MSE (with the
-   winner highlighted), the full metrics comparison table, ROC/calibration curves, lift/gain, SHAP
-   summary, and the feature engineering report — all displayed directly in the browser.
-4. A **Score a Record** tab lets you fill in one new record's values and get its PD, risk band,
-   and business decision from the model just trained — still entirely in memory.
+   winner highlighted) and the full metrics comparison table. For a binary target this also shows
+   ROC/calibration curves and a lift/gain table; for multi-class it shows a confusion matrix
+   heatmap labeled with the original class names instead (ROC/calibration/lift-gain don't have a
+   standard multi-class form). SHAP summary, permutation feature importance, and the feature
+   engineering report are shown for either case whenever they're generated successfully.
+4. A **Score a Record** tab lets you fill in one new record's values and get a prediction from the
+   model just trained — for binary targets, PD/risk band/business decision (Approve/Manual
+   Review/Reject); for multi-class targets, the predicted class name and a probability bar chart
+   across all classes. Still entirely in memory.
 5. Clicking **Start Over** (or just closing the app) discards everything. Nothing is written to
    the repo.
 
