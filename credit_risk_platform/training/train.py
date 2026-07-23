@@ -26,6 +26,7 @@ from credit_risk_platform.evaluation.explainability import write_explainability_
 from credit_risk_platform.evaluation.feature_report import write_feature_report
 from credit_risk_platform.evaluation.metrics import (
     classification_metrics,
+    optimize_threshold,
     save_metrics,
     write_validation_plots,
 )
@@ -126,19 +127,21 @@ def train_experiment(
     dataset_name: str | None = None,
     settings: Settings | None = None,
     cv_folds: int = 5,
-    selection_metric: str = "roc_auc",
+    selection_metric: str = "cv_roc_auc_mean",
     class_names: dict[int, str] | None = None,
     progress_callback: Callable[[int, int, float], None] | None = None,
 ) -> dict[str, Any]:
     """Train and compare candidate models. Supports binary or multi-class targets.
 
     ``selection_metric`` picks the champion: any key present in each model's metrics dict.
-    ``cv_test_mse`` is treated as lower-is-better (it's the out-of-fold Brier score / MSE
-    between predicted probability and actual outcome across the k CV folds); every other
-    metric is treated as higher-is-better. ``class_names`` (code -> original label) is used
-    only to label the confusion matrix plot for multi-class targets. ``progress_callback``, if
-    given, is called as ``callback(models_done, total_models, elapsed_seconds)`` after each
-    candidate model finishes, so a caller (e.g. a UI) can estimate time remaining.
+    It should be a **cross-validated** (train-only) quantity — ``cv_roc_auc_mean`` (default) or
+    ``cv_test_mse`` — so the held-out test set stays a clean generalisation estimate and is not
+    itself used to choose among candidates. ``cv_test_mse`` is lower-is-better (the out-of-fold
+    Brier score / MSE between predicted probability and actual outcome across the k CV folds);
+    every other metric is higher-is-better. ``class_names`` (code -> original label) is used only
+    to label the confusion matrix plot for multi-class targets. ``progress_callback``, if given,
+    is called as ``callback(models_done, total_models, elapsed_seconds)`` after each candidate
+    model finishes, so a caller (e.g. a UI) can estimate time remaining.
     """
     configure_logging()
     settings = settings or get_settings()
@@ -200,14 +203,26 @@ def train_experiment(
             method="predict_proba",
             n_jobs=-1,
         )
+        # The decision threshold is learned on the out-of-fold training predictions, never on
+        # the test set, so the test-set precision/recall/F1/confusion matrix are honest held-out
+        # numbers rather than a cutoff tuned against the very data it is scored on.
+        train_threshold: float | None = None
         if num_classes == 2:
             cv_test_mse = float(np.mean((bundle.y_train.to_numpy() - out_of_fold_proba[:, 1]) ** 2))
+            train_threshold = optimize_threshold(
+                bundle.y_train.to_numpy(), out_of_fold_proba[:, 1]
+            )[0]
         else:
             one_hot_true = np.eye(num_classes)[bundle.y_train.to_numpy()]
             cv_test_mse = float(np.mean(np.sum((one_hot_true - out_of_fold_proba) ** 2, axis=1)))
 
         y_score = search.predict_proba(bundle.x_test)
-        metrics = classification_metrics(bundle.y_test.to_numpy(), y_score, num_classes=num_classes)
+        metrics = classification_metrics(
+            bundle.y_test.to_numpy(),
+            y_score,
+            num_classes=num_classes,
+            threshold=train_threshold,
+        )
         metrics["cv_roc_auc_mean"] = float(cv_scores[f"test_{scoring_metric}"].mean())
         metrics["cv_roc_auc_std"] = float(cv_scores[f"test_{scoring_metric}"].std())
         if num_classes == 2:

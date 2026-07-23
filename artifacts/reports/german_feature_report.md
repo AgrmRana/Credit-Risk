@@ -32,7 +32,8 @@
 
 ## Dropped Features
 
-Dropped features include unusable constant/high-missingness columns and raw date columns after date-derived variables are created.
+Dropped features include unusable constant/high-missingness columns and raw date columns
+after date-derived variables are created.
 
 - None
 

@@ -3,30 +3,36 @@
   "dataset_name": "german",
   "target_definition": "class mapped to default=1 / non-default=0",
   "champion_model": "random_forest",
+  "selection_metric": "cv_roc_auc_mean",
+  "cv_folds": 5,
+  "num_classes": 2,
+  "class_names": null,
   "model_comparison": {
     "logistic_regression": {
       "roc_auc": 0.7686904761904761,
       "pr_auc": 0.5671024395969962,
       "ks_statistic": 0.430952380952381,
       "gini": 0.5373809523809523,
-      "precision": 0.603448275862069,
-      "recall": 0.5833333333333334,
-      "f1": 0.5932203389830508,
-      "threshold": 0.625,
+      "precision": 0.4444444444444444,
+      "recall": 0.8,
+      "f1": 0.5714285714285714,
+      "threshold": 0.44499999999999995,
       "pr_curve_auc": 0.5603286900545711,
       "confusion_matrix": [
         [
-          117,
-          23
+          80,
+          60
         ],
         [
-          25,
-          35
+          12,
+          48
         ]
       ],
       "cv_roc_auc_mean": 0.7335565476190474,
       "cv_roc_auc_std": 0.02216044378488198,
       "cv_pr_auc_mean": 0.5130452358191933,
+      "cv_test_mse": 0.20981566826137008,
+      "cv_folds": 5,
       "best_params": {
         "classifier__C": 0.5012926322168021,
         "classifier__class_weight": "balanced"
@@ -38,24 +44,26 @@
       "pr_auc": 0.5720865152212623,
       "ks_statistic": 0.42857142857142855,
       "gini": 0.5350000000000001,
-      "precision": 0.5185185185185185,
-      "recall": 0.7,
-      "f1": 0.5957446808510638,
-      "threshold": 0.5249999999999999,
+      "precision": 0.4375,
+      "recall": 0.8166666666666667,
+      "f1": 0.5697674418604651,
+      "threshold": 0.4049999999999999,
       "pr_curve_auc": 0.5656385890918804,
       "confusion_matrix": [
         [
-          101,
-          39
+          77,
+          63
         ],
         [
-          18,
-          42
+          11,
+          49
         ]
       ],
       "cv_roc_auc_mean": 0.7353050595238095,
       "cv_roc_auc_std": 0.0216071864136056,
       "cv_pr_auc_mean": 0.5143623631596881,
+      "cv_test_mse": 0.2085128669098949,
+      "cv_folds": 5,
       "best_params": {
         "classifier__C": 0.33205789513550127,
         "classifier__class_weight": "balanced"
@@ -67,24 +75,26 @@
       "pr_auc": 0.7106589653502466,
       "ks_statistic": 0.4690476190476191,
       "gini": 0.6228571428571428,
-      "precision": 0.6862745098039216,
-      "recall": 0.5833333333333334,
-      "f1": 0.6306306306306306,
-      "threshold": 0.4699999999999999,
+      "precision": 0.5652173913043478,
+      "recall": 0.65,
+      "f1": 0.6046511627906976,
+      "threshold": 0.4149999999999999,
       "pr_curve_auc": 0.7083619111424406,
       "confusion_matrix": [
         [
-          124,
-          16
+          110,
+          30
         ],
         [
-          25,
-          35
+          21,
+          39
         ]
       ],
       "cv_roc_auc_mean": 0.7905877976190475,
       "cv_roc_auc_std": 0.04028700095744439,
       "cv_pr_auc_mean": 0.618276160307696,
+      "cv_test_mse": 0.16702711265675307,
+      "cv_folds": 5,
       "best_params": {
         "classifier__class_weight": "balanced",
         "classifier__max_depth": null,
@@ -98,24 +108,26 @@
       "pr_auc": 0.6833965582964795,
       "ks_statistic": 0.4571428571428571,
       "gini": 0.5999999999999999,
-      "precision": 0.5526315789473685,
-      "recall": 0.7,
-      "f1": 0.6176470588235294,
-      "threshold": 0.33499999999999996,
+      "precision": 0.46,
+      "recall": 0.7666666666666667,
+      "f1": 0.575,
+      "threshold": 0.24,
       "pr_curve_auc": 0.6796846704005975,
       "confusion_matrix": [
         [
-          106,
-          34
+          86,
+          54
         ],
         [
-          18,
-          42
+          14,
+          46
         ]
       ],
       "cv_roc_auc_mean": 0.7881696428571427,
       "cv_roc_auc_std": 0.03315761207239224,
       "cv_pr_auc_mean": 0.6130914130957275,
+      "cv_test_mse": 0.16675331634287127,
+      "cv_folds": 5,
       "best_params": {
         "classifier__colsample_bytree": 0.696805592132731,
         "classifier__learning_rate": 0.0483991780504304,

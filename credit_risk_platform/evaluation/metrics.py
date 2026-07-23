@@ -51,7 +51,10 @@ def lift_gain_table(y_true: np.ndarray, y_score: np.ndarray, bins: int = 10) -> 
 
 
 def classification_metrics(
-    y_true: np.ndarray, y_score: np.ndarray, num_classes: int = 2
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    num_classes: int = 2,
+    threshold: float | None = None,
 ) -> dict[str, Any]:
     """Compute metrics for a binary or multi-class classifier.
 
@@ -59,10 +62,17 @@ def classification_metrics(
     a 1-D array of just the positive-class probability is also accepted for convenience.
     Multi-class metrics use macro-averaging and drop the binary-only concepts (KS statistic,
     Gini, PR AUC, a single decision threshold) that have no standard multi-class equivalent.
+
+    ``threshold`` (binary only): the decision cutoff at which precision/recall/F1/confusion
+    matrix are evaluated. Pass a threshold learned on separate (training/CV) data to avoid
+    optimising the cutoff on the same data it is scored against — doing so would inflate those
+    threshold-dependent metrics. If ``None`` (e.g. direct/ad-hoc use), the cutoff is optimised
+    on ``y_true``; callers reporting held-out performance should always supply a threshold.
     """
     if num_classes == 2:
         positive_score = y_score[:, 1] if np.ndim(y_score) == 2 else y_score
-        threshold, best_f1 = optimize_threshold(y_true, positive_score)
+        if threshold is None:
+            threshold = optimize_threshold(y_true, positive_score)[0]
         y_pred = positive_score >= threshold
         precision, recall, _ = precision_recall_curve(y_true, positive_score)
         return {
@@ -72,8 +82,8 @@ def classification_metrics(
             "gini": float(2 * roc_auc_score(y_true, positive_score) - 1),
             "precision": float(precision_score(y_true, y_pred, zero_division=0)),
             "recall": float(recall_score(y_true, y_pred, zero_division=0)),
-            "f1": float(best_f1),
-            "threshold": threshold,
+            "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+            "threshold": float(threshold),
             "pr_curve_auc": float(auc(recall, precision)),
             "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
         }

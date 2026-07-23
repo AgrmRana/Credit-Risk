@@ -199,14 +199,16 @@ upload flow, which accepts any CSV directly.
 ### Baseline model comparison
 
 These are the actual metrics from the committed `artifacts/metrics.json` (German Credit, champion:
-`random_forest`):
+`random_forest`, selected by cross-validated ROC AUC). F1 is measured at the operating threshold
+learned on the training folds (see "Methodology and Statistical Soundness" below), not a
+test-set-optimal cutoff:
 
 | Model | ROC AUC | PR AUC | KS | Gini | F1 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Logistic Regression | 0.769 | 0.567 | 0.431 | 0.537 | 0.593 |
-| Ridge Logistic Regression | 0.768 | 0.572 | 0.429 | 0.535 | 0.596 |
-| Random Forest | 0.811 | 0.711 | 0.469 | 0.623 | 0.631 |
-| XGBoost | 0.800 | 0.683 | 0.457 | 0.600 | 0.618 |
+| Logistic Regression | 0.769 | 0.567 | 0.431 | 0.537 | 0.571 |
+| Ridge Logistic Regression | 0.768 | 0.572 | 0.429 | 0.535 | 0.570 |
+| Random Forest | 0.811 | 0.711 | 0.469 | 0.623 | 0.605 |
+| XGBoost | 0.800 | 0.683 | 0.457 | 0.600 | 0.575 |
 
 ### Validation visuals
 
@@ -219,6 +221,53 @@ These are the actual metrics from the committed `artifacts/metrics.json` (German
 ![Prediction distribution](docs/images/prediction_distribution.png)
 ![Residual plot](docs/images/residual_plot.png)
 ![SHAP summary](docs/images/shap_summary.png)
+
+## Methodology and Statistical Soundness
+
+The pipeline is built to keep the held-out test set a genuinely clean estimate of generalisation.
+The key safeguards:
+
+- **All preprocessing is fit inside cross-validation.** Feature engineering, median imputation,
+  outlier clipping (train-quantile bounds), scaling, and one-hot/ordinal encoding live in a single
+  sklearn `Pipeline` that is the estimator passed to `RandomizedSearchCV`, so every transform is
+  re-fit on each fold's training portion only — no statistic ever leaks from a validation fold or
+  the test set into fitting. No engineered feature uses the target, so there is no target leakage.
+- **The champion is selected on a cross-validated (train-only) metric, never the test set.**
+  Selection uses `cv_roc_auc_mean` (CLI default) or `cv_test_mse` (the app), both computed by
+  k-fold cross validation on the training data. The test set is scored *once*, for reporting, after
+  the champion is fixed — so the reported test metrics are not biased by model selection. (Earlier
+  the CLI default selected on test-set ROC AUC, which contaminated the held-out estimate; that is
+  fixed.)
+- **The decision threshold is learned on training data, not the test set.** The operating cutoff
+  used for precision/recall/F1/confusion-matrix (and stored for serving) is optimised on the
+  out-of-fold *training* predictions, then applied to the test set. (Earlier the cutoff was
+  optimised directly on the test set and reported at that same optimum, which inflated those
+  threshold-dependent metrics; that is fixed. ROC AUC, PR AUC, KS, and Gini are threshold-free and
+  were unaffected either way.)
+- **Metric formulas** are standard: Gini `= 2·AUC − 1`, KS `= max(TPR − FPR)` over the ROC curve,
+  PR AUC via average precision, and the cross-validated "test MSE" is the Brier score
+  (`mean((y − p)²)` for binary, the multi-class sum-of-squared-errors Brier for 3+ classes).
+
+### Known limitations (honest, not defects)
+
+These are inherent trade-offs, documented rather than hidden:
+
+- **Single train/test split.** The test metrics are one 80/20 point estimate with no confidence
+  interval; on a small dataset (German Credit is 1,000 rows) they carry real variance. Repeated
+  splits or a nested-CV outer loop would quantify that.
+- **Non-nested CV for the reported CV scores.** Hyperparameter search and the `cv_*` scores reuse
+  the same folds, so those CV numbers are *mildly optimistic* as generalisation estimates. They are
+  still valid for *choosing between* candidates (the bias is roughly uniform across models), and
+  the untouched test set remains the honest headline estimate.
+- **Predicted probabilities may be imperfectly calibrated.** Tree ensembles (RF/XGBoost) don't
+  guarantee calibrated `predict_proba`; the calibration curve is shown so you can judge this, but
+  no post-hoc calibration (e.g. isotonic/Platt) is applied.
+- **Class imbalance handling is asymmetric.** Logistic and random-forest tune `class_weight`, but
+  XGBoost does not tune `scale_pos_weight`, so imbalance is handled slightly differently per model.
+- **Ratio features clamp the denominator to a minimum of 1** to avoid divide-by-zero, which can
+  distort ratios whose natural denominator is a small fraction.
+- The already-`0`/`1` **target direction is assumed** (`1 = default`); see "How the Target Column
+  Is Interpreted".
 
 ## Testing and Quality
 

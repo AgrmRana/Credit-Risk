@@ -87,6 +87,39 @@ def test_cv_folds_and_mse_selection(tmp_path: Path) -> None:
     assert champion_mse == min(metrics["cv_test_mse"] for metrics in comparison.values())
 
 
+def test_default_champion_selection_uses_cross_validated_metric(tmp_path: Path) -> None:
+    # The champion must be chosen on a cross-validated (train-only) metric so the held-out test
+    # set is never used to pick among candidates — otherwise the reported test metrics are
+    # selection-biased. The default selection_metric must therefore be a cv_* quantity.
+    frame = _synthetic_frame()
+    frame["outcome"] = frame["outcome"].apply(lambda value: 1 if value == "bad" else 0)
+    csv_path = tmp_path / "data.csv"
+    frame.to_csv(csv_path, index=False)
+
+    config = DatasetConfig(
+        name="test_default_selection",
+        display_name="Test default selection dataset",
+        target_column="outcome",
+        source_type="csv",
+        csv_path=csv_path,
+    )
+    register_dataset(config)
+
+    settings = Settings(
+        model_artifact_path=tmp_path / "model.joblib",
+        metrics_path=tmp_path / "metrics.json",
+        feature_importance_path=tmp_path / "feature_importance.csv",
+        reports_dir=tmp_path / "reports",
+    )
+    report = train_experiment(dataset_name="test_default_selection", settings=settings)
+
+    selection_metric = report["selection_metric"]
+    assert selection_metric.startswith("cv_")
+    comparison = report["model_comparison"]
+    champion_score = comparison[report["champion_model"]][selection_metric]
+    assert champion_score == max(metrics[selection_metric] for metrics in comparison.values())
+
+
 def test_multiclass_target_end_to_end(tmp_path: Path) -> None:
     labels = ["A", "B", "C"]
     records = []
