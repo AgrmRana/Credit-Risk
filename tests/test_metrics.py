@@ -1,5 +1,4 @@
 import numpy as np
-
 from credit_risk_platform.evaluation.metrics import classification_metrics, ks_statistic
 
 

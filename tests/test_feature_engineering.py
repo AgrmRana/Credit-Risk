@@ -1,5 +1,4 @@
 import pandas as pd
-
 from credit_risk_platform.feature_engineering.preprocessing import build_preprocessor
 from credit_risk_platform.feature_engineering.transformers import (
     FeatureInteractionBuilder,

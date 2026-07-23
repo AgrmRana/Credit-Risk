@@ -5,15 +5,14 @@ from pathlib import Path
 import joblib
 import matplotlib
 import pandas as pd
+from credit_risk_platform.evaluation.metrics import lift_gain_table
+from credit_risk_platform.training.data import make_train_test_split
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     confusion_matrix,
     precision_recall_curve,
     roc_curve,
 )
-
-from credit_risk_platform.evaluation.metrics import lift_gain_table
-from credit_risk_platform.training.data import make_train_test_split
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_IMAGES = ROOT / "docs" / "images"

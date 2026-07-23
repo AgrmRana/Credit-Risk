@@ -17,7 +17,7 @@ This document describes governance considerations for the Credit Risk Decision P
 - German Credit is a small public dataset and does not reflect the scale, heterogeneity, or regulatory complexity of a modern bank portfolio.
 - Some model families may perform differently on larger datasets such as Home Credit Default Risk.
 - Public datasets may lack protected-class attributes, bureau-depth variables, and post-origination performance windows required for real-world validation.
-- The current database layer stores prediction history but does not yet implement full model-release approval workflow or immutable audit trails.
+- The tool does not persist prediction history between runs, so it does not yet implement a model-release approval workflow or immutable audit trails.
 - The platform does not currently implement reject inference, adverse action reason codes, or fairness monitoring.
 
 ## Potential Bias
@@ -59,8 +59,7 @@ Recommended production monitoring:
 - Calibration monitoring using observed default outcomes when available.
 - Segment-level approval, manual-review, and rejection rates.
 - Feature importance and explanation drift.
-- API latency, error rates, and prediction volume.
-- Database write failures and prediction-history completeness.
+- Prediction volume and error rates if the tool is wrapped in a production serving layer.
 
 ## Retraining Recommendations
 

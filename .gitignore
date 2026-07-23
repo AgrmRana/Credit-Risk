@@ -1,13 +1,9 @@
 .DS_Store
-.env
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-node_modules/
-frontend/dist/
-artifacts/*.db
 data/raw/
 data/processed/

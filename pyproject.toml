@@ -5,7 +5,7 @@ target-version = ["py312"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["backend", "tests"]
+src = ["credit_risk_platform", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "ANN"]
@@ -13,5 +13,5 @@ ignore = ["ANN401", "B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["backend"]
+pythonpath = ["."]
 addopts = "-q"

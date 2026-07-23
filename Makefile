@@ -1,26 +1,20 @@
-.PHONY: install train api test lint format frontend-install frontend-build
+.PHONY: install run train test lint format
 
 install:
 	python3 -m venv .venv
 	. .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
 
-train:
-	. .venv/bin/activate && PYTHONPATH=backend python -m credit_risk_platform.training.train --dataset $${DATASET:-german}
+run:
+	. .venv/bin/activate && streamlit run app.py
 
-api:
-	. .venv/bin/activate && PYTHONPATH=backend uvicorn credit_risk_platform.api.main:app --reload
+train:
+	. .venv/bin/activate && python -m credit_risk_platform.training.train --dataset $${DATASET:-german}
 
 test:
-	. .venv/bin/activate && PYTHONPATH=backend pytest
+	. .venv/bin/activate && pytest
 
 lint:
-	. .venv/bin/activate && ruff check backend tests
+	. .venv/bin/activate && ruff check credit_risk_platform tests scripts app.py
 
 format:
-	. .venv/bin/activate && black backend tests
-
-frontend-install:
-	cd frontend && npm install
-
-frontend-build:
-	cd frontend && npm run build
+	. .venv/bin/activate && black credit_risk_platform tests scripts app.py

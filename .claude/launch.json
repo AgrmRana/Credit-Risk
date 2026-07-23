@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "backend-api",
-      "runtimeExecutable": ".venv/bin/uvicorn",
-      "runtimeArgs": ["credit_risk_platform.api.main:app", "--host", "0.0.0.0", "--port", "8001", "--app-dir", "backend"],
-      "port": 8001
-    },
-    {
-      "name": "frontend-dashboard",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd frontend && npm run dev -- --host 0.0.0.0 --port 5173"],
-      "port": 5173
+      "name": "streamlit-app",
+      "runtimeExecutable": ".venv/bin/python3.12",
+      "runtimeArgs": ["-m", "streamlit", "run", "app.py", "--server.port", "8501", "--server.headless", "true"],
+      "port": 8501
     }
   ]
 }

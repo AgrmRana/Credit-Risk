@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  backend:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,18 +15,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: PYTHONPATH=backend ruff check backend tests scripts
-      - run: black --check backend tests scripts
-      - run: PYTHONPATH=backend pytest
-
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: npm install
-        working-directory: frontend
-      - run: npm run build
-        working-directory: frontend
+      - run: ruff check credit_risk_platform tests scripts app.py
+      - run: black --check credit_risk_platform tests scripts app.py
+      - run: pytest
