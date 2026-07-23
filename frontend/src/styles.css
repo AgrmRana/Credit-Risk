@@ -180,6 +180,47 @@ textarea {
   color: #b54708;
 }
 
+input[type="file"] {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.field {
+  display: block;
+  margin: 16px 0;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.field select {
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  display: block;
+  font: inherit;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.field .hint {
+  color: #667085;
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.radio-option {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 400;
+  gap: 6px;
+  margin-right: 18px;
+}
+
 .batch-summary {
   align-items: center;
   background: #f8fafc;

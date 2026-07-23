@@ -10,7 +10,8 @@ import {
   Landmark,
   PlayCircle,
   Scale,
-  ShieldCheck
+  ShieldCheck,
+  Upload
 } from "lucide-react";
 import {
   Bar,
@@ -91,6 +92,14 @@ function App() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [features, setFeatures] = useState(JSON.stringify(sampleApplicant, null, 2));
   const [message, setMessage] = useState("Ready");
+  const [customFile, setCustomFile] = useState<File | null>(null);
+  const [customPreview, setCustomPreview] = useState<{
+    dataset_id: string;
+    row_count: number;
+    columns: { name: string; type: string; unique_values?: string[] }[];
+  } | null>(null);
+  const [targetColumn, setTargetColumn] = useState("");
+  const [positiveLabel, setPositiveLabel] = useState("");
 
   async function refresh() {
     try {
@@ -139,10 +148,49 @@ function App() {
     refresh();
   }
 
+  async function uploadCustomDataset() {
+    if (!customFile) return;
+    setMessage("Uploading and inspecting columns...");
+    const formData = new FormData();
+    formData.append("file", customFile);
+    const response = await fetch(`${API_BASE}/custom-datasets/upload`, {
+      method: "POST",
+      body: formData
+    });
+    if (!response.ok) {
+      setMessage(await response.text());
+      return;
+    }
+    const data = await response.json();
+    setCustomPreview(data);
+    setTargetColumn("");
+    setPositiveLabel("");
+    setMessage(`Detected ${data.columns.length} columns across ${data.row_count} rows`);
+  }
+
+  async function trainCustomDataset() {
+    if (!customPreview || !targetColumn) return;
+    setMessage("Training candidate models on your dataset...");
+    const response = await fetch(`${API_BASE}/custom-datasets/${customPreview.dataset_id}/train`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_column: targetColumn, positive_label: positiveLabel || null })
+    });
+    if (!response.ok) {
+      setMessage(await response.text());
+      return;
+    }
+    setMessage("Training complete — new champion model is now live");
+    setCustomPreview(null);
+    setCustomFile(null);
+    refresh();
+  }
+
   const nav = [
     ["dashboard", Gauge, "Overview"],
     ["single", ShieldCheck, "Single Prediction"],
     ["batch", FileUp, "Batch Prediction"],
+    ["custom", Upload, "Train Custom Model"],
     ["metrics", BarChart3, "Model Metrics"],
     ["importance", Activity, "Feature Importance"],
     ["history", History, "Prediction History"],
@@ -219,6 +267,122 @@ function App() {
               <Database size={18} />
               <span>Predictions are written to the database with model name, timestamp, PD, risk band, and decision.</span>
             </div>
+          </section>
+        )}
+
+        {page === "custom" && (
+          <section className="panel wide">
+            <h2>Train Custom Model</h2>
+            <p>
+              Upload any CSV, pick the dependent variable, and retrain the model comparison
+              pipeline on it.
+            </p>
+            <div className="batch-summary">
+              <Database size={18} />
+              <span>
+                Training replaces the model currently used for all predictions app-wide.
+              </span>
+            </div>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(event) => setCustomFile(event.target.files?.[0] ?? null)}
+            />
+            <button className="primary" onClick={uploadCustomDataset} disabled={!customFile}>
+              <Upload size={18} />
+              Upload &amp; Detect Columns
+            </button>
+
+            {customPreview && (
+              <>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Column</th>
+                      <th>Detected Type</th>
+                      <th>Sample Values</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customPreview.columns.map((column) => (
+                      <tr key={column.name}>
+                        <td>{column.name}</td>
+                        <td>{column.type}</td>
+                        <td>{column.unique_values?.join(", ") ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="field">
+                  <label htmlFor="target-column">Dependent variable (target)</label>
+                  <select
+                    id="target-column"
+                    value={targetColumn}
+                    onChange={(event) => {
+                      setTargetColumn(event.target.value);
+                      setPositiveLabel("");
+                    }}
+                  >
+                    <option value="">Select a column…</option>
+                    {customPreview.columns
+                      .filter((column) => (column.unique_values?.length ?? 0) === 2)
+                      .map((column) => (
+                        <option key={column.name} value={column.name}>
+                          {column.name}
+                        </option>
+                      ))}
+                  </select>
+                  <span className="hint">
+                    Only columns with exactly two unique values are shown — this pipeline supports
+                    binary classification only.
+                  </span>
+                </div>
+
+                {targetColumn &&
+                  (() => {
+                    const values =
+                      customPreview.columns.find((column) => column.name === targetColumn)
+                        ?.unique_values ?? [];
+                    const alreadyBinary = values.every((value) => value === "0" || value === "1");
+                    if (alreadyBinary) return null;
+                    return (
+                      <div className="field">
+                        <label>Which value means "default / bad outcome"?</label>
+                        {values.map((value) => (
+                          <label key={value} className="radio-option">
+                            <input
+                              type="radio"
+                              name="positive-label"
+                              value={value}
+                              checked={positiveLabel === value}
+                              onChange={() => setPositiveLabel(value)}
+                            />
+                            {value}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                <button
+                  className="primary"
+                  onClick={trainCustomDataset}
+                  disabled={
+                    !targetColumn ||
+                    (!(
+                      customPreview.columns
+                        .find((column) => column.name === targetColumn)
+                        ?.unique_values?.every((value) => value === "0" || value === "1") ?? false
+                    ) &&
+                      !positiveLabel)
+                  }
+                >
+                  <PlayCircle size={18} />
+                  Train on this Dataset
+                </button>
+              </>
+            )}
           </section>
         )}
 

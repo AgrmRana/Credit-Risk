@@ -64,3 +64,9 @@ def get_dataset_config(dataset_name: str) -> DatasetConfig:
         raise ValueError(
             f"Unsupported dataset '{dataset_name}'. Supported datasets: {supported}"
         ) from exc
+
+
+def register_dataset(config: DatasetConfig) -> None:
+    """Register a dataset config at runtime (e.g. for an uploaded custom CSV)."""
+
+    DATASET_REGISTRY[config.name] = config

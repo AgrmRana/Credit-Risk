@@ -21,3 +21,8 @@ class PredictionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
+
+
+class CustomDatasetTrainRequest(BaseModel):
+    target_column: str
+    positive_label: str | None = None

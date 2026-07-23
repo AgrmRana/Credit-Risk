@@ -256,6 +256,8 @@ Open:
 - `POST /predict`
 - `POST /batch-predict`
 - `POST /train?dataset=german`
+- `POST /custom-datasets/upload` — upload an arbitrary CSV; returns a `dataset_id` and detected column types/sample values
+- `POST /custom-datasets/{dataset_id}/train` — pick the target column (and, for non-0/1 labels, which value is the positive/default class) and retrain the model comparison pipeline on it. Binary classification only; replaces the currently deployed model, same as `/train`
 - `GET /model-info`
 - `GET /model-metrics`
 - `GET /feature-importance`
