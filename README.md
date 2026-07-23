@@ -122,9 +122,17 @@ correctly:
   two raw values for a 2-class column you haven't assigned yet, or the full class → code mapping
   for any 3+ class column. This is a preview of every candidate at once, not just the one currently
   selected in the dropdown below it.
-- **For a 2-class target that isn't already `0`/`1`, or any 3+ class target, nothing is assumed.**
-  Once selected, you either pick which value is positive (binary), or the app confirms the same
-  class → code mapping again before training (multi-class).
+- **For a 2-class target that isn't already exactly `0`/`1`, nothing is assumed — you must decide
+  which value is positive and which is negative.** Once selected, the app shows a "which value
+  represents the positive / default outcome?" picker with the two raw values as options; whichever
+  one you pick is mapped to `1`, the other to `0`. This applies equally whether the two values are
+  qualitative (`"good"`/`"bad"`) or **numerical but not `0`/`1`** — e.g. a column containing only
+  `1` and `2`, or only `5` and `10`. The app makes no assumption about which number is "better" or
+  "worse"; it treats any two-value pair the same way unless the values are *literally* the strings
+  `"0"` and `"1"`, and always asks. (One related gotcha: a column of floats `0.0`/`1.0` is **not**
+  treated as "already 0/1" either — the picker still appears — because the check compares string
+  representations, and `str(0.0)` is `"0.0"`, not `"0"`.) For any 3+ class target, nothing is
+  assumed either: the app confirms the same class → code mapping again before training.
 - **Score a Record always displays the original values, never the internal numeric codes** — this
   applies whether those original values are qualitative (`"high"`, `"medium"`, `"low"`) or
   themselves numeric (e.g. a `risk_score` column with values `1`–`5`). Internally every target is
