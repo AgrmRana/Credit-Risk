@@ -103,6 +103,29 @@ brew install libomp
 5. Clicking **Start Over** (or just closing the app) discards everything. Nothing is written to
    the repo.
 
+## How the Target Column Is Interpreted
+
+The app never inspects your data's meaning — only its shape (how many distinct values a column
+has). That leads to one assumption worth knowing about, and two behaviors that are already handled
+correctly:
+
+- **If your target column is already exactly `0`/`1`, the app assumes `1 = default` and
+  `0 = non-default` without asking.** It only shows the "which value represents the positive /
+  default outcome?" picker when the two values are something *other* than `0`/`1` (e.g.
+  `"good"`/`"bad"`). If your data encodes it the other way around (`1 = repaid`, `0 = defaulted` —
+  a real convention some datasets use), predictions, risk bands, and Approve/Reject decisions will
+  come out inverted, with no warning. If you're not sure which way your data is encoded, safest is
+  to check it yourself before uploading, or re-map it so `1` clearly means the bad/default outcome.
+- **For a 2-class target that isn't already `0`/`1`, or any 3+ class target, nothing is assumed.**
+  You either pick which value is positive (binary), or the app shows you the full class → code
+  mapping on screen before training (multi-class) — see the example in the section above.
+- **Score a Record always displays the original values, never the internal numeric codes** — this
+  applies whether those original values are qualitative (`"high"`, `"medium"`, `"low"`) or
+  themselves numeric (e.g. a `risk_score` column with values `1`–`5`). Internally every target is
+  mapped to sequential codes `0..N-1` so the models can be fit, but the predicted-class label, the
+  probability bar chart's category labels, and the multi-class confusion matrix's axis labels all
+  map back through to whatever value was actually in your CSV.
+
 ## Adaptive Feature Engineering
 
 The pipeline detects numeric, categorical, ordinal, boolean, and date columns, and creates derived
@@ -200,5 +223,7 @@ potential bias, validation methodology, monitoring strategy, and retraining reco
 - Add population stability index and drift monitors for a re-uploaded dataset.
 - Add adverse action reason-code reporting alongside each decision.
 - Add fairness testing by protected-class proxies where legally and ethically appropriate.
-- Support multi-class and regression targets, not just binary classification.
+- Support regression targets, not just binary/multi-class classification.
 - Let the user override auto-detected column types before training.
+- Ask which value means "default" even when a binary target is already `0`/`1`, instead of
+  assuming `1 = default` (see "How the Target Column Is Interpreted" above).
