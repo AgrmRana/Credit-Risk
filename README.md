@@ -1,21 +1,21 @@
 # Credit Risk Decision Platform
 
-A local, on-demand tool for estimating applicant Probability of Default (PD): upload a CSV,
-choose the target variable, and it runs adaptive feature engineering, compares four candidate
-models, and shows validation metrics, explainability, and a business decision (Approve / Manual
-Review / Reject) — all in one Streamlit page, entirely in memory.
+A local tool for estimating an applicant's Probability of Default (PD). Upload a CSV, pick a
+target column, and it handles the rest: adaptive feature engineering, a comparison across four
+candidate models, validation metrics, explainability, and a final business decision (Approve /
+Manual Review / Reject). All of it runs in one Streamlit page, entirely in memory.
 
-This is closer to a local analysis tool (in the spirit of Weka, Orange, or RapidMiner) than a
-deployed web service: there is no server to keep running, no database, and no account system.
-Every run starts from a clean slate, and nothing is saved once you close the app.
+I built this closer to a desktop analysis tool — think Weka, Orange, RapidMiner — than a deployed
+web service. There's no server to babysit, no database, no accounts. Every run starts clean, and
+closing the app throws everything away.
 
 ## Business Problem
 
-Credit teams need a fast way to score a new dataset, inspect model evidence, apply business
-thresholds, and understand what's driving risk — without standing up infrastructure for a one-off
-analysis. This tool separates dataset ingestion, adaptive feature engineering, model comparison,
-validation/explainability, and decision-threshold logic, so the full decision path is inspectable
-in one sitting.
+Credit teams need a fast way to take a new dataset, get model evidence, apply business
+thresholds, and understand what's actually driving risk, without spinning up infrastructure for
+what is usually a one-off analysis. I split the work into distinct stages — ingestion, feature
+engineering, model comparison, validation/explainability, and decision logic — so the whole path
+from raw data to a lending decision is inspectable in one sitting rather than buried in a notebook.
 
 ## Architecture
 
@@ -36,8 +36,8 @@ flowchart LR
     end
 ```
 
-Everything in the `Engine` box runs against a temporary directory that is deleted the moment the
-run finishes — nothing lands in the repo, and nothing carries over between runs.
+Everything inside the `Engine` box writes to a temporary directory that's deleted the second the
+run finishes. Nothing lands in the repo, and nothing carries over between runs.
 
 ## Folder Structure
 
@@ -55,9 +55,9 @@ flowchart TD
     P --> SVC["services/ scoring and decision logic"]
 ```
 
-`credit_risk_platform/` is a plain analytical package — no web framework, no ORM, no database. It
-has no idea it's being driven by a Streamlit app; `app.py` is the only thing that imports it for
-interactive use.
+`credit_risk_platform/` is a plain analytical package: no web framework, no ORM, no database
+inside it. It has no idea a Streamlit app is driving it — `app.py` is the only thing that imports
+it for interactive use, and the CLI trainer is the only other consumer.
 
 ## Running it
 
@@ -68,10 +68,10 @@ make install
 make run
 ```
 
-`make run` starts `streamlit run app.py`, which opens in your browser (usually
+`make run` starts `streamlit run app.py` and opens it in your browser (usually
 `http://localhost:8501`). Upload a CSV, pick the target column, click **Run Analysis**.
 
-On macOS, XGBoost may require OpenMP:
+On macOS, XGBoost needs OpenMP, which isn't bundled by default:
 
 ```bash
 brew install libomp
@@ -79,95 +79,95 @@ brew install libomp
 
 ## What happens when you click "Run Analysis"
 
-1. The uploaded CSV is profiled: columns are classified as numeric, categorical, ordinal, boolean,
-   or date, and any column with between 2 and 20 unique values is offered as the target — binary
-   or multi-class. For a binary target not already `0`/`1`, you're asked which value means the
-   positive/default outcome; for 3+ classes, each value is automatically assigned a numeric code
-   and the mapping is shown on screen.
-2. You choose **k**, the number of cross-validation folds. The dataset is registered at runtime
-   and run through the **same** training pipeline described below — four candidate models are
-   tuned, then each is scored with k-fold cross validation using the out-of-fold predicted
-   probabilities to compute a **test MSE** (the Brier score: mean squared error between predicted
-   probability and actual outcome, generalized to multi-class as the sum of squared errors across
-   all classes). The model with the lowest cross-validated test MSE becomes the champion. A
-   progress bar and a dynamically updating "Trained X/4 candidate models — estimated time
-   remaining: ~Ns" message track training as it happens, with the estimate recalculated after each
-   model finishes based on the average time per model so far.
-3. Results include a **leaderboard** ranking every candidate by cross-validated test MSE (with the
-   winner highlighted) and the full metrics comparison table. For a binary target this also shows
-   ROC/calibration curves and a lift/gain table; for multi-class it shows a confusion matrix
-   heatmap labeled with the original class names instead (ROC/calibration/lift-gain don't have a
-   standard multi-class form). SHAP summary, permutation feature importance, and the feature
-   engineering report are shown for either case whenever they're generated successfully.
-4. A **Score a Record** tab lets you fill in one new record's values and get a prediction from the
-   model just trained — for binary targets, PD/risk band/business decision (Approve/Manual
-   Review/Reject); for multi-class targets, the predicted class name and a probability bar chart
-   across all classes. Still entirely in memory.
-5. Clicking **Start Over** (or just closing the app) discards everything. Nothing is written to
-   the repo.
+1. The CSV gets profiled — every column is classified as numeric, categorical, ordinal, boolean,
+   or date, and anything with between 2 and 20 unique values is offered up as a possible target,
+   whether that's a binary outcome or something with more classes. If a binary column isn't
+   already `0`/`1`, I ask which value counts as the positive/default outcome. For three or more
+   classes, each value gets a numeric code automatically and the mapping is shown right on screen.
+2. You pick **k**, the number of cross-validation folds. The dataset gets registered at runtime
+   and pushed through the same training pipeline described below: four candidate models get
+   tuned, then each is scored with k-fold cross validation using out-of-fold predicted
+   probabilities to compute a **test MSE** — the Brier score, essentially mean squared error
+   between predicted probability and actual outcome (generalized to multi-class as a sum of
+   squared errors across classes). Whichever model has the lowest cross-validated test MSE
+   becomes the champion. While training runs, a progress bar and a status line ("Trained X/4
+   candidate models — estimated time remaining: ~Ns") update live, with the estimate recalculated
+   after every model finishes.
+3. Results come back as a **leaderboard** ranking every candidate by cross-validated test MSE
+   (winner highlighted) plus the full metrics table. For a binary target you also get ROC and
+   calibration curves and a lift/gain table; for multi-class targets, a confusion matrix heatmap
+   takes their place instead, since ROC/calibration/lift-gain don't really generalize past two
+   classes. SHAP summary, permutation feature importance, and the feature engineering report show
+   up for either case whenever they generate successfully.
+4. The **Score a Record** tab lets you fill in one new applicant's values and get a live
+   prediction from the model you just trained — PD, risk band, and an Approve/Manual
+   Review/Reject decision for binary targets, or the predicted class plus a probability bar chart
+   for multi-class. Still entirely in memory.
+5. Hit **Start Over**, or just close the app, and everything's gone. Nothing gets written to the
+   repo.
 
 ## How the Target Column Is Interpreted
 
-The app never inspects your data's meaning — only its shape (how many distinct values a column
-has). That leads to one assumption worth knowing about, and two behaviors that are already handled
-correctly:
+The app doesn't try to understand what your data means — only its shape, i.e. how many distinct
+values a column takes. That leads to one assumption you should know about, and a couple of things
+I made sure were handled properly.
 
-- **If your target column is already exactly `0`/`1`, the app assumes `1 = default` and
-  `0 = non-default` without asking.** It only shows the "which value represents the positive /
-  default outcome?" picker when the two values are something *other* than `0`/`1` (e.g.
-  `"good"`/`"bad"`). If your data encodes it the other way around (`1 = repaid`, `0 = defaulted` —
-  a real convention some datasets use), predictions, risk bands, and Approve/Reject decisions will
-  come out inverted, with no warning. If you're not sure which way your data is encoded, safest is
-  to check it yourself before uploading, or re-map it so `1` clearly means the bad/default outcome.
-- **A "Potential Target Variables" table lists every column that could be a target — before you
-  pick one.** For each candidate it shows the column name, how many classes it has, and its
-  encoding: `already 0/1 (assumes 1 = positive/default outcome)` for already-binary columns, the
-  two raw values for a 2-class column you haven't assigned yet, or the full class → code mapping
-  for any 3+ class column. This is a preview of every candidate at once, not just the one currently
-  selected in the dropdown below it.
-- **For a 2-class target that isn't already exactly `0`/`1`, nothing is assumed — you must decide
-  which value is positive and which is negative.** Once selected, the app shows a "which value
-  represents the positive / default outcome?" picker with the two raw values as options; whichever
-  one you pick is mapped to `1`, the other to `0`. This applies equally whether the two values are
-  qualitative (`"good"`/`"bad"`) or **numerical but not `0`/`1`** — e.g. a column containing only
-  `1` and `2`, or only `5` and `10`. The app makes no assumption about which number is "better" or
-  "worse"; it treats any two-value pair the same way unless the values are *literally* the strings
-  `"0"` and `"1"`, and always asks. (One related gotcha: a column of floats `0.0`/`1.0` is **not**
-  treated as "already 0/1" either — the picker still appears — because the check compares string
-  representations, and `str(0.0)` is `"0.0"`, not `"0"`.) For any 3+ class target, nothing is
-  assumed either: the app confirms the same class → code mapping again before training.
-- **Score a Record always displays the original values, never the internal numeric codes** — this
-  applies whether those original values are qualitative (`"high"`, `"medium"`, `"low"`) or
-  themselves numeric (e.g. a `risk_score` column with values `1`–`5`). Internally every target is
-  mapped to sequential codes `0..N-1` so the models can be fit, but the predicted-class label, the
-  probability bar chart's category labels, and the multi-class confusion matrix's axis labels all
-  map back through to whatever value was actually in your CSV.
+- **If your target column is already exactly `0`/`1`, I assume `1 = default` and `0 =
+  non-default` without asking.** The "which value is positive?" picker only shows up when the two
+  values are something other than `0`/`1` (say, `"good"`/`"bad"`). If your data happens to be
+  coded the other way — `1 = repaid`, `0 = defaulted`, which some datasets genuinely do — every
+  prediction, risk band, and Approve/Reject call comes out backwards, with no warning from the
+  app. If you're not sure how your column is coded, check it yourself before uploading, or remap
+  it so `1` clearly means the bad outcome.
+- **There's a "Potential Target Variables" table that shows every column that could be a target,
+  before you even pick one.** For each candidate it lists the column name, how many classes it
+  has, and how it would be encoded: `already 0/1 (assumes 1 = positive/default outcome)`, the two
+  raw values waiting on your pick, or the full class-to-code mapping for anything with 3+ classes.
+  It's a preview of every option at once, not just whatever happens to be selected in the dropdown
+  below it.
+- **For a two-value target that isn't already `0`/`1`, nothing gets assumed** — you decide which
+  value is positive and which is negative. Once you pick, whichever value you chose maps to `1`
+  and the other to `0`. This works the same way whether the two values are qualitative
+  (`"good"`/`"bad"`) or **numeric but not `0`/`1`** — a column that's only `1` and `2`, say, or
+  only `5` and `10`. There's no assumption baked in about which number is "better." Any two-value
+  column gets the same treatment unless its values are literally the strings `"0"` and `"1"`, in
+  which case it always asks. One gotcha worth knowing: a column of floats `0.0`/`1.0` does **not**
+  count as "already 0/1" — the picker still appears, because the check compares string
+  representations and `str(0.0)` is `"0.0"`, not `"0"`. For 3+ classes, same idea: nothing's
+  assumed, and the app just confirms the class-to-code mapping again before training starts.
+- **Score a Record always shows you the original values, never the internal numeric codes** —
+  whether those original values are qualitative (`"high"`, `"medium"`, `"low"`) or numeric
+  themselves, like a `risk_score` column running `1`–`5`. Internally, every target gets mapped to
+  sequential codes `0..N-1` so the models can actually be fit, but the predicted-class label, the
+  probability bar chart's labels, and the multi-class confusion matrix's axis labels all map back
+  to whatever was actually sitting in your CSV.
 
 ## Adaptive Feature Engineering
 
-The pipeline detects numeric, categorical, ordinal, boolean, and date columns, and creates derived
-variables only when statistically meaningful source columns exist:
+The pipeline detects numeric, categorical, ordinal, boolean, and date columns, and only builds
+derived features when the underlying columns that make them meaningful actually exist:
 
 - Loan amount and duration produce repayment-intensity features.
-- Income and loan amount produce debt-to-income ratio.
-- Savings or assets and loan amount produce savings-to-loan ratio.
-- Age produces age bands and age squared.
+- Income and loan amount produce a debt-to-income ratio.
+- Savings or assets and loan amount produce a savings-to-loan ratio.
+- Age produces age bands and an age-squared term.
 - Employment duration produces an employment stability score.
-- Existing credit counts and loan amount produce credit exposure score.
-- Revolving balance and credit limit produce utilization ratio.
-- Delinquency and payment history variables produce delinquency counts and missed-payment ratios.
-- Date variables produce month, quarter, and age-in-days features before raw date columns are dropped.
+- Existing credit counts and loan amount produce a credit exposure score.
+- Revolving balance and credit limit produce a utilization ratio.
+- Delinquency and payment history produce delinquency counts and missed-payment ratios.
+- Date columns produce month, quarter, and age-in-days features, and the raw date is dropped
+  afterward.
 
-Ordinal encoding is used for configured natural orderings and conservative inferred ordinal
-variables. Nominal features use one-hot encoding. Logistic models receive scaled numeric features;
-tree models receive unscaled numeric features.
+Ordinal encoding gets used for configured natural orderings and for cautiously inferred ordinal
+variables. Nominal features get one-hot encoded. Logistic models get scaled numeric features; tree
+models get them unscaled, since scaling doesn't change how a tree splits anyway.
 
 ## Business Decision Engine
 
-Decision thresholds live in
-[decision_thresholds.json](credit_risk_platform/config/decision_thresholds.json), separate from
-any trained model, so credit policy can be reviewed independently of model estimation. Every score
-comes back with:
+Decision thresholds live in a separate
+[decision_thresholds.json](credit_risk_platform/config/decision_thresholds.json), deliberately
+kept apart from any trained model so credit policy can be reviewed on its own, without touching
+the modeling side. Every score comes back with:
 
 - Probability of Default
 - Risk band
@@ -177,18 +177,19 @@ comes back with:
 ## Reproducing the committed baseline (optional CLI)
 
 The repo ships with a pre-trained baseline (`artifacts/`) on the public OpenML `credit-g` German
-Credit dataset, used for the metrics/plots below and in `docs/images/`. This is regenerated with a
-plain CLI command — a separate, optional path from the interactive app, kept because it's how the
-committed baseline and documentation images get reproduced, not because the app needs it:
+Credit dataset — that's what produced the metrics and plots below and in `docs/images/`. You can
+regenerate it with a plain CLI command. It's a separate, optional path from the interactive app,
+kept around specifically so the committed baseline and documentation images stay reproducible, not
+because the app needs it:
 
 ```bash
 DATASET=german make train
 ```
 
 The framework also supports configurable CSV loaders for Give Me Some Credit and Home Credit
-Default Risk (see [datasets.py](credit_risk_platform/config/datasets.py)) when those public files
-are placed in the configured local paths — useful for the CLI, not required for the interactive
-upload flow, which accepts any CSV directly.
+Default Risk (see [datasets.py](credit_risk_platform/config/datasets.py)) if those public files
+are placed in the configured local paths. That's useful for the CLI specifically — the interactive
+upload flow accepts any CSV directly and doesn't need it.
 
 | Key | Dataset | Source | Target |
 | --- | --- | --- | --- |
@@ -198,10 +199,10 @@ upload flow, which accepts any CSV directly.
 
 ### Baseline model comparison
 
-These are the actual metrics from the committed `artifacts/metrics.json` (German Credit, champion:
+These numbers come straight from the committed `artifacts/metrics.json` (German Credit, champion:
 `random_forest`, selected by cross-validated ROC AUC). F1 is measured at the operating threshold
-learned on the training folds (see "Methodology and Statistical Soundness" below), not a
-test-set-optimal cutoff:
+learned on the training folds — see "Methodology and Statistical Soundness" below for why that
+matters — not a threshold picked to look good on the test set:
 
 | Model | ROC AUC | PR AUC | KS | Gini | F1 |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -224,50 +225,62 @@ test-set-optimal cutoff:
 
 ## Methodology and Statistical Soundness
 
-The pipeline is built to keep the held-out test set a genuinely clean estimate of generalisation.
-The key safeguards:
+I went back through this pipeline specifically looking for places where the held-out test set
+might be influencing a decision it shouldn't. Two real problems turned up, and both were quietly
+inflating the reported numbers.
+
+**The decision threshold was being tuned on the test set.** The metrics function was picking the
+F1-optimal cutoff using whatever labels it was handed — and when scoring the test set, that meant
+precision, recall, F1, and the confusion matrix were all measured at a threshold chosen with
+knowledge of the test outcomes. That's not something you could actually do in production. I fixed
+it so the threshold is learned from out-of-fold predictions on the training data instead, then
+applied as-is to the test set. F1 dropped a little across every model once this was corrected —
+which is exactly the amount of optimism that was there before. ROC AUC, PR AUC, KS, and Gini don't
+depend on a threshold at all, so none of them moved.
+
+**The champion model was being picked using the test set.** The CLI's default selection metric
+was plain test-set ROC AUC, so the "winner" among four candidates was chosen using the same data
+later reported as the held-out result — a textbook way to bias your own evaluation. The default
+now selects on `cv_roc_auc_mean`, a cross-validated, train-only number (the Streamlit app was
+already doing this correctly via `cv_test_mse`). After the fix, the champion is still
+`random_forest` — it genuinely wins on cross-validated performance too, so the original conclusion
+held up, but I wanted to know that for certain rather than assume it.
+
+Beyond those two fixes, here's what the pipeline gets right by design:
 
 - **All preprocessing is fit inside cross-validation.** Feature engineering, median imputation,
-  outlier clipping (train-quantile bounds), scaling, and one-hot/ordinal encoding live in a single
-  sklearn `Pipeline` that is the estimator passed to `RandomizedSearchCV`, so every transform is
-  re-fit on each fold's training portion only — no statistic ever leaks from a validation fold or
-  the test set into fitting. No engineered feature uses the target, so there is no target leakage.
-- **The champion is selected on a cross-validated (train-only) metric, never the test set.**
-  Selection uses `cv_roc_auc_mean` (CLI default) or `cv_test_mse` (the app), both computed by
-  k-fold cross validation on the training data. The test set is scored *once*, for reporting, after
-  the champion is fixed — so the reported test metrics are not biased by model selection. (Earlier
-  the CLI default selected on test-set ROC AUC, which contaminated the held-out estimate; that is
-  fixed.)
-- **The decision threshold is learned on training data, not the test set.** The operating cutoff
-  used for precision/recall/F1/confusion-matrix (and stored for serving) is optimised on the
-  out-of-fold *training* predictions, then applied to the test set. (Earlier the cutoff was
-  optimised directly on the test set and reported at that same optimum, which inflated those
-  threshold-dependent metrics; that is fixed. ROC AUC, PR AUC, KS, and Gini are threshold-free and
-  were unaffected either way.)
-- **Metric formulas** are standard: Gini `= 2·AUC − 1`, KS `= max(TPR − FPR)` over the ROC curve,
-  PR AUC via average precision, and the cross-validated "test MSE" is the Brier score
-  (`mean((y − p)²)` for binary, the multi-class sum-of-squared-errors Brier for 3+ classes).
+  outlier clipping using train-quantile bounds, scaling, and one-hot/ordinal encoding all live
+  inside a single sklearn `Pipeline` — the same estimator handed to `RandomizedSearchCV` — so
+  every transform gets re-fit on each fold's training portion only. No statistic ever leaks in
+  from a validation fold or the test set. And no engineered feature touches the target, so there's
+  no target leakage either.
+- **Metric formulas are standard**, nothing custom or reinterpreted: Gini `= 2·AUC − 1`, KS `=
+  max(TPR − FPR)` off the ROC curve, PR AUC via average precision, and the cross-validated "test
+  MSE" is the Brier score (`mean((y − p)²)` for binary, the multi-class sum-of-squared-errors
+  version for 3+ classes).
 
 ### Known limitations (honest, not defects)
 
-These are inherent trade-offs, documented rather than hidden:
+These are trade-offs I made consciously, not things I missed:
 
 - **Single train/test split.** The test metrics are one 80/20 point estimate with no confidence
-  interval; on a small dataset (German Credit is 1,000 rows) they carry real variance. Repeated
-  splits or a nested-CV outer loop would quantify that.
-- **Non-nested CV for the reported CV scores.** Hyperparameter search and the `cv_*` scores reuse
-  the same folds, so those CV numbers are *mildly optimistic* as generalisation estimates. They are
-  still valid for *choosing between* candidates (the bias is roughly uniform across models), and
-  the untouched test set remains the honest headline estimate.
-- **Predicted probabilities may be imperfectly calibrated.** Tree ensembles (RF/XGBoost) don't
-  guarantee calibrated `predict_proba`; the calibration curve is shown so you can judge this, but
-  no post-hoc calibration (e.g. isotonic/Platt) is applied.
-- **Class imbalance handling is asymmetric.** Logistic and random-forest tune `class_weight`, but
-  XGBoost does not tune `scale_pos_weight`, so imbalance is handled slightly differently per model.
-- **Ratio features clamp the denominator to a minimum of 1** to avoid divide-by-zero, which can
-  distort ratios whose natural denominator is a small fraction.
-- The already-`0`/`1` **target direction is assumed** (`1 = default`); see "How the Target Column
-  Is Interpreted".
+  interval, and on a dataset this small (German Credit is 1,000 rows), that estimate carries real
+  variance. Repeated splits or a nested-CV outer loop would put a number on it.
+- **Non-nested CV for the reported CV scores.** The hyperparameter search and the `cv_*` scores
+  reuse the same folds, so those numbers run a little optimistic as generalization estimates.
+  They're still fine for *choosing between* candidates, since the bias is roughly uniform across
+  models — the untouched test set is the honest headline number.
+- **Predicted probabilities may not be perfectly calibrated.** Tree ensembles like random forest
+  and XGBoost don't guarantee calibrated `predict_proba` output. I show the calibration curve so
+  you can judge for yourself, but I haven't applied any post-hoc calibration like isotonic or
+  Platt scaling.
+- **Class imbalance handling isn't fully symmetric across models.** Logistic regression and random
+  forest tune `class_weight`; XGBoost doesn't tune `scale_pos_weight`, so imbalance gets handled
+  slightly differently depending on the model.
+- **Ratio features clamp their denominator to a minimum of 1** to avoid dividing by zero, which
+  can distort a ratio whose natural denominator legitimately sits below 1.
+- **The already-`0`/`1` target direction is assumed** (`1 = default`) — see "How the Target Column
+  Is Interpreted" above for the full explanation and the risk that comes with it.
 
 ## Testing and Quality
 
